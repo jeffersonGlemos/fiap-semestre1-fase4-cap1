@@ -1,0 +1,25 @@
+# Configuracao do Streamlit — FarmTech Solutions (Fase 4 / Cap. 1)
+# Tema agricola (base light, verdes/terra) e ajustes de servidor para deploy.
+
+[theme]
+base = "light"
+primaryColor = "#2e7d32"          # verde folha (acoes/destaques)
+backgroundColor = "#f7faf5"       # fundo claro levemente esverdeado
+secondaryBackgroundColor = "#e8f0e3"  # cards / sidebar
+textColor = "#1b3a1b"             # verde escuro para boa leitura
+font = "sans serif"
+
+[server]
+# Porta padrao do Streamlit (alinhada ao Dockerfile e docker-compose).
+port = 8501
+address = "0.0.0.0"
+headless = true                   # nao tenta abrir navegador (containers/cloud)
+enableCORS = false                # facilita o deploy atras de proxy
+enableXsrfProtection = true
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false          # sem telemetria
+
+[runner]
+fastReruns = true

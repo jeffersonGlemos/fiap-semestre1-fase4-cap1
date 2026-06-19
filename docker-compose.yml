@@ -1,0 +1,82 @@
+# FarmTech Solutions — Fase 4, Capítulo 1
+# Assistente Agrícola Inteligente
+# Autor: Jefferson Gonçalves Lemos · RM 572399 · IA — FIAP
+#
+# Arquitetura híbrida:
+#   - Este compose sobe APENAS dois serviços: 'api' (FastAPI) e 'streamlit'.
+#   - O Oracle XE NÃO é definido aqui: ele é REUSADO do docker-compose do Cap-3
+#     (1-semestre/Cap-3/fase3_cap1), que expõe o Oracle em localhost:1521
+#     (service XEPDB1). A tabela SENSORES_FARMTECH vive nesse Oracle externo.
+#
+# Como a 'api' alcança o Oracle do Cap-3 (escolha UMA das opções):
+#   (A) host.docker.internal  -> já configurado abaixo via extra_hosts.
+#       ORACLE_DSN aponta para host.docker.internal:1521/XEPDB1.
+#   (B) rede externa compartilhada -> suba o Cap-3 primeiro, descubra o nome
+#       da rede (docker network ls) e troque os comentários da seção 'networks',
+#       ajustando ORACLE_DSN para o hostname do container Oracle do Cap-3.
+
+services:
+  # ----------------------------------------------------------------------
+  # API FastAPI — serve modelos e consulta o Oracle (fonte 'local'/'cloud')
+  # ----------------------------------------------------------------------
+  api:
+    build: ./api
+    container_name: farmtech_f4c1_api
+    ports:
+      - "8000:8000"
+    environment:
+      # Fonte de dados: local = Oracle/API ; cloud = parquet + joblib do repo
+      DATA_SOURCE: ${DATA_SOURCE:-local}
+      # Conexão com o Oracle XE EXTERNO (vindo do Cap-3)
+      ORACLE_DSN: ${ORACLE_DSN:-host.docker.internal:1521/XEPDB1}
+      ORACLE_USER: ${ORACLE_USER:-system}
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-oracle}
+      # Localização dos artefatos dentro do container
+      MODELS_DIR: /app/models
+      DATA_PATH: /app/data/processed/dataset_ml.parquet
+    volumes:
+      # Modelos e dados montados como SOMENTE LEITURA
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+    extra_hosts:
+      # Permite resolver o host da máquina (Oracle do Cap-3) de dentro do container
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    # networks:
+    #   - cap3_net   # opção (B): usar a rede do docker-compose do Cap-3
+
+  # ----------------------------------------------------------------------
+  # Streamlit — dashboard do Assistente Agrícola
+  # ----------------------------------------------------------------------
+  streamlit:
+    build: ./streamlit
+    container_name: farmtech_f4c1_streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    environment:
+      # URL da API consumida quando DATA_SOURCE=local
+      API_URL: ${API_URL:-http://api:8000}
+      # local = consome API/Oracle ; cloud = lê parquet + joblib versionados
+      DATA_SOURCE: ${DATA_SOURCE:-local}
+      MODELS_DIR: /app/models
+      DATA_PATH: /app/data/processed/dataset_ml.parquet
+    volumes:
+      # Mesmos artefatos, montados como SOMENTE LEITURA
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+    restart: unless-stopped
+    # networks:
+    #   - cap3_net   # opção (B): usar a rede do docker-compose do Cap-3
+
+# --------------------------------------------------------------------------
+# Opção (B) — rede externa compartilhada com o Cap-3.
+# Suba o Oracle do Cap-3 primeiro; confirme o nome real da rede com
+# 'docker network ls' e ajuste 'name' abaixo. Depois descomente as
+# referências 'networks:' em cada serviço acima.
+# --------------------------------------------------------------------------
+# networks:
+#   cap3_net:
+#     external: true
+#     name: fase3_cap1_default

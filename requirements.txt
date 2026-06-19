@@ -1,0 +1,35 @@
+# FarmTech Solutions — Fase 4, Capítulo 1
+# Assistente Agrícola Inteligente
+# Autor: Jefferson Gonçalves Lemos · RM 572399
+# Disciplina: Inteligência Artificial — FIAP
+#
+# Instale com:  pip install -r requirements.txt
+# (Python 3.10+ recomendado)
+
+# --- Manipulação e análise de dados ---
+pandas>=2.1
+numpy>=1.26
+pyarrow>=15.0          # leitura/escrita de Parquet (data/processed/dataset_ml.parquet)
+
+# --- Machine Learning (regressão) ---
+scikit-learn>=1.4      # LinearRegression, Ridge, RandomForestRegressor, GridSearchCV
+joblib>=1.3            # serialização dos modelos em models/*.joblib
+
+# --- Visualização ---
+matplotlib>=3.8
+seaborn>=0.13
+plotly>=5.18           # gráficos interativos no dashboard Streamlit
+
+# --- Dashboard / aplicação web ---
+streamlit>=1.30        # streamlit/app.py (PARTE 1 e IR ALÉM 2)
+
+# --- API (arquitetura híbrida) ---
+fastapi>=0.110         # api/ (FastAPI :8000)
+uvicorn>=0.27          # servidor ASGI
+requests>=2.31         # cliente HTTP usado pelo Streamlit quando DATA_SOURCE=local
+
+# --- Banco de dados IoT (IR ALÉM 1) ---
+oracledb>=2.0          # driver Oracle (XE reusado do Cap-3, service XEPDB1)
+
+# --- Notebook (PARTE 2) ---
+jupyter>=1.0

@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-06-19T23:09:49.018133+00:00",
+  "random_state": 42,
+  "test_size": 0.2,
+  "cv_folds": 5,
+  "features": [
+    "temperatura",
+    "n",
+    "p",
+    "k",
+    "estado_bomba_bin",
+    "hora",
+    "dia_semana",
+    "id_pivo_p1",
+    "id_pivo_p2",
+    "id_pivo_p3"
+  ],
+  "targets": {
+    "rendimento": {
+      "best_model": "random_forest",
+      "best_cv_r2": 0.09726500591475554,
+      "candidates": {
+        "linear_regression": {
+          "cv_r2": 0.009393889255074606,
+          "best_params": {}
+        },
+        "ridge": {
+          "cv_r2": 0.009464868988609543,
+          "best_params": {
+            "alpha": 10.0
+          }
+        },
+        "random_forest": {
+          "cv_r2": 0.09726500591475554,
+          "best_params": {
+            "max_depth": 12,
+            "n_estimators": 200
+          }
+        }
+      },
+      "test_metrics": {
+        "mae": 7.021098831653501,
+        "mse": 97.46545306895814,
+        "rmse": 9.872459322223524,
+        "r2": 0.10004881057806148
+      },
+      "n_train": 2156,
+      "n_test": 540,
+      "model_path": "models/modelo_rendimento.joblib"
+    },
+    "volume_irrigacao": {
+      "best_model": "random_forest",
+      "best_cv_r2": 0.6889598826114407,
+      "candidates": {
+        "linear_regression": {
+          "cv_r2": 0.6299353922619803,
+          "best_params": {}
+        },
+        "ridge": {
+          "cv_r2": 0.6299984293876012,
+          "best_params": {
+            "alpha": 10.0
+          }
+        },
+        "random_forest": {
+          "cv_r2": 0.6889598826114407,
+          "best_params": {
+            "max_depth": 12,
+            "n_estimators": 400
+          }
+        }
+      },
+      "test_metrics": {
+        "mae": 2.2602468414394545,
+        "mse": 10.48431740268808,
+        "rmse": 3.23794956765668,
+        "r2": 0.6708767416648804
+      },
+      "n_train": 2156,
+      "n_test": 540,
+      "model_path": "models/modelo_volume_irrigacao.joblib"
+    },
+    "necessidade_fertilizacao": {
+      "best_model": "random_forest",
+      "best_cv_r2": 0.9704838025492799,
+      "candidates": {
+        "linear_regression": {
+          "cv_r2": 0.885284395924449,
+          "best_params": {}
+        },
+        "ridge": {
+          "cv_r2": 0.8852929736944875,
+          "best_params": {
+            "alpha": 10.0
+          }
+        },
+        "random_forest": {
+          "cv_r2": 0.9704838025492799,
+          "best_params": {
+            "max_depth": 12,
+            "n_estimators": 400
+          }
+        }
+      },
+      "test_metrics": {
+        "mae": 2.7817088360264033,
+        "mse": 12.078874680241864,
+        "rmse": 3.4754675484374564,
+        "r2": 0.9670216729534563
+      },
+      "n_train": 2156,
+      "n_test": 540,
+      "model_path": "models/modelo_necessidade_fertilizacao.joblib"
+    },
+    "umidade": {
+      "best_model": "ridge",
+      "best_cv_r2": 0.7731766775391868,
+      "candidates": {
+        "linear_regression": {
+          "cv_r2": 0.7731537996064336,
+          "best_params": {}
+        },
+        "ridge": {
+          "cv_r2": 0.7731766775391868,
+          "best_params": {
+            "alpha": 10.0
+          }
+        },
+        "random_forest": {
+          "cv_r2": 0.7543078896186237,
+          "best_params": {
+            "max_depth": 12,
+            "n_estimators": 400
+          }
+        }
+      },
+      "test_metrics": {
+        "mae": 3.836981019545798,
+        "mse": 23.5887529752036,
+        "rmse": 4.856825400938725,
+        "r2": 0.7660279782194557
+      },
+      "n_train": 2156,
+      "n_test": 540,
+      "model_path": "models/modelo_umidade.joblib"
+    },
+    "ph": {
+      "best_model": "ridge",
+      "best_cv_r2": 0.07299345027546475,
+      "candidates": {
+        "linear_regression": {
+          "cv_r2": 0.07290425750284732,
+          "best_params": {}
+        },
+        "ridge": {
+          "cv_r2": 0.07299345027546475,
+          "best_params": {
+            "alpha": 10.0
+          }
+        },
+        "random_forest": {
+          "cv_r2": 0.014237270162108583,
+          "best_params": {
+            "max_depth": 12,
+            "n_estimators": 200
+          }
+        }
+      },
+      "test_metrics": {
+        "mae": 1.0922890488839947,
+        "mse": 1.5763494420038962,
+        "rmse": 1.255527555254721,
+        "r2": 0.08572577193293507
+      },
+      "n_train": 2156,
+      "n_test": 540,
+      "model_path": "models/modelo_ph.joblib"
+    }
+  }
+}
