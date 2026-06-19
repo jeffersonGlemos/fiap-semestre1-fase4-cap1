@@ -324,7 +324,7 @@ def aba_visao_geral(df: pd.DataFrame) -> None:
                 color_discrete_sequence=[CORES["agua"], CORES["alerta"]],
             )
             fig.update_layout(legend_title_text="", margin=dict(t=10))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.caption("Sem coluna temporal (capturado_em) para a serie.")
 
@@ -347,14 +347,14 @@ def aba_npk_ph(df: pd.DataFrame) -> None:
             color_discrete_sequence=[CORES["verde"], CORES["verde_claro"], CORES["terra"]],
         )
         fig.update_layout(showlegend=False, margin=dict(t=10), title="Media de NPK")
-        col1.plotly_chart(fig, use_container_width=True)
+        col1.plotly_chart(fig, width="stretch")
 
     if "ph" in df.columns:
         fig2 = px.histogram(df, x="ph", nbins=30, color_discrete_sequence=[CORES["verde"]])
         # Faixa boa de pH (6.0-7.0) destacada.
         fig2.add_vrect(x0=6.0, x1=7.0, fillcolor=CORES["verde_claro"], opacity=0.25, line_width=0)
         fig2.update_layout(margin=dict(t=10), title="Distribuicao de pH (faixa boa 6.0-7.0)")
-        col2.plotly_chart(fig2, use_container_width=True)
+        col2.plotly_chart(fig2, width="stretch")
 
 
 def aba_irrigacao(df: pd.DataFrame) -> None:
@@ -374,7 +374,7 @@ def aba_irrigacao(df: pd.DataFrame) -> None:
             color_discrete_sequence=[CORES["agua"], CORES["terra"]],
         )
         fig.update_layout(margin=dict(t=10), title="Estado da bomba")
-        col1.plotly_chart(fig, use_container_width=True)
+        col1.plotly_chart(fig, width="stretch")
 
     if {"umidade", "temperatura"}.issubset(df.columns):
         cor = "estado_bomba" if "estado_bomba" in df.columns else None
@@ -383,13 +383,13 @@ def aba_irrigacao(df: pd.DataFrame) -> None:
             labels={"umidade": "Umidade (%)", "temperatura": "Temperatura (C)"},
         )
         fig2.update_layout(margin=dict(t=10), title="Umidade x Temperatura")
-        col2.plotly_chart(fig2, use_container_width=True)
+        col2.plotly_chart(fig2, width="stretch")
 
     # Se o alvo engenheirado de volume existir no dataset, mostra sua distribuicao.
     if "volume_irrigacao" in df.columns:
         fig3 = px.histogram(df, x="volume_irrigacao", nbins=30, color_discrete_sequence=[CORES["agua"]])
         fig3.update_layout(margin=dict(t=10), title="Distribuicao do volume de irrigacao (mm)")
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width="stretch")
 
 
 def aba_correlacoes(df: pd.DataFrame) -> None:
@@ -410,7 +410,7 @@ def aba_correlacoes(df: pd.DataFrame) -> None:
         color_continuous_scale="RdYlGn", zmin=-1, zmax=1,
     )
     fig.update_layout(margin=dict(t=10), title="Matriz de correlacao")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # ---------------------------------------------------------------------------
@@ -473,8 +473,11 @@ def aba_previsoes(id_pivo: str) -> dict:
         texto = f"{valor:.2f} {unidade}".strip()
         col.metric(f"{emoji} {rotulo}", texto)
 
-        # Metricas do modelo (toleranre a chaves em maiusculo/minusculo).
-        m = metrics.get(alvo, {}) if isinstance(metrics, dict) else {}
+        # Metricas do modelo: ficam em metrics['targets'][alvo]['test_metrics'].
+        m = {}
+        if isinstance(metrics, dict):
+            tgt = metrics.get("targets", {}).get(alvo, {})
+            m = tgt.get("test_metrics", tgt)  # r2/mae/rmse (tolerante a formato antigo)
         def _get(k1):
             for kk in (k1, k1.upper(), k1.lower()):
                 if kk in m:
@@ -497,7 +500,13 @@ def aba_previsoes(id_pivo: str) -> dict:
             f"`{MODELS_DIR}`. Treine os modelos (ml/train.py) para habilitar as previsoes."
         )
 
-    return previsoes
+    # Leitura atual dos sensores (alimenta as regras de manejo do ml/suggest.py).
+    leitura = {
+        "temperatura": temperatura, "n": n, "p": p, "k": k,
+        "estado_bomba": bomba_label, "umidade": umidade, "ph": ph,
+        "id_pivo": pivo_modelo, "hora": hora, "dia_semana": dia_semana,
+    }
+    return previsoes, leitura
 
 
 # ---------------------------------------------------------------------------
@@ -529,30 +538,24 @@ def _sugestoes_fallback(previsoes: dict) -> list[str]:
     return msgs
 
 
-def aba_sugestoes(previsoes: dict) -> None:
+def aba_sugestoes(previsoes: dict, leitura: dict | None = None) -> None:
     """Mostra recomendacoes acionaveis a partir das previsoes."""
     st.subheader("🌱 Sugestoes de Manejo")
-    st.caption("Acoes recomendadas com base nas previsoes dos modelos.")
+    st.caption("Acoes recomendadas com base nas previsoes dos modelos (ml/suggest.py).")
 
     if not previsoes:
         st.info("Ajuste os parametros na aba '🔮 Previsoes' para gerar sugestoes.")
         return
 
-    # Tenta usar o modulo ml/suggest.py (varios nomes de funcao aceitos).
+    leitura = leitura or {}
+
+    # Integra com o modulo ml/suggest.py: sugerir_acoes(previsoes, leitura_atual).
     sugestoes = None
     try:
         import ml.suggest as suggest_mod  # type: ignore
 
-        for fn_nome in ("gerar_sugestoes", "sugerir_manejo", "suggest", "recomendar"):
-            fn = getattr(suggest_mod, fn_nome, None)
-            if callable(fn):
-                try:
-                    sugestoes = fn(previsoes)
-                except TypeError:
-                    # Algumas assinaturas podem nao receber argumentos.
-                    sugestoes = fn()
-                break
-    except Exception:  # pragma: no cover - usa fallback
+        sugestoes = suggest_mod.sugerir_acoes(previsoes, leitura)
+    except Exception:  # pragma: no cover - usa fallback se o modulo falhar
         sugestoes = None
 
     if not sugestoes:
@@ -598,12 +601,16 @@ def main() -> None:
     with abas[3]:
         aba_correlacoes(df_filtrado)
 
-    # As previsoes alimentam a aba de sugestoes (estado compartilhado na sessao).
+    # As previsoes + leitura atual alimentam a aba de sugestoes.
     with abas[4]:
-        previsoes = aba_previsoes(pivo)
+        previsoes, leitura = aba_previsoes(pivo)
         st.session_state["previsoes"] = previsoes
+        st.session_state["leitura"] = leitura
     with abas[5]:
-        aba_sugestoes(st.session_state.get("previsoes", {}))
+        aba_sugestoes(
+            st.session_state.get("previsoes", {}),
+            st.session_state.get("leitura", {}),
+        )
 
 
 if __name__ == "__main__":

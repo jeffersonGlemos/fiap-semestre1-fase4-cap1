@@ -10,12 +10,11 @@ textColor = "#1b3a1b"             # verde escuro para boa leitura
 font = "sans serif"
 
 [server]
-# Porta padrao do Streamlit (alinhada ao Dockerfile e docker-compose).
-port = 8501
-address = "0.0.0.0"
+# Porta/endereco NAO sao fixados aqui: o Streamlit Cloud os gerencia, e fixar
+# 'port' conflita com o modo de desenvolvimento. No Docker, a porta vem do CMD
+# (--server.port=8501); localmente usa o default 8501.
 headless = true                   # nao tenta abrir navegador (containers/cloud)
-enableCORS = false                # facilita o deploy atras de proxy
-enableXsrfProtection = true
+enableXsrfProtection = true       # protecao XSRF (default seguro; CORS fica em 'true')
 maxUploadSize = 50
 
 [browser]
