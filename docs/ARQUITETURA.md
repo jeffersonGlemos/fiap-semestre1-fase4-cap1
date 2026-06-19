@@ -115,9 +115,14 @@ necessidade_fertilizacao = clip(
 
 ### 2.4 `ml/train.py` — treinamento e seleção de modelos
 
-- **Features de entrada:** `temperatura, n, p, k, estado_bomba`
-  (1=ON / 0=OFF), `id_pivo` (one-hot p1/p2/p3), `hora` e `dia_semana`.
-- **Cinco alvos de regressão**, cada um com seu próprio modelo:
+- **Features de entrada (por-alvo):**
+  - Base (todos): `temperatura, n, p, k, estado_bomba_bin`
+    (1=ON / 0=OFF), `id_pivo` (one-hot p1/p2/p3), `hora` e `dia_semana`.
+  - Contexto (`umidade`, `ph`): adicionadas **só** aos alvos engenheirados
+    (`rendimento`, `volume_irrigacao`, `necessidade_fertilizacao`), que dependem
+    delas — sem usar o alvo como feature de si mesmo (sem *data leakage*).
+- **Cinco alvos de regressão**, cada um com seu próprio modelo e conjunto de
+  features (registrado em `metrics.json → feature_columns`):
   `rendimento`, `volume_irrigacao`, `necessidade_fertilizacao`, `umidade`, `ph`.
 - **Algoritmos (Scikit-Learn):** `LinearRegression` (baseline), `Ridge`
   e `RandomForestRegressor` (não-linear).

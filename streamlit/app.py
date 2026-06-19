@@ -209,12 +209,17 @@ def load_model(alvo: str):
 # 4. ENGENHARIA DE FEATURES PARA PREVISAO
 # ---------------------------------------------------------------------------
 
-def montar_features(temperatura, n, p, k, estado_bomba, id_pivo, hora, dia_semana) -> pd.DataFrame:
+def montar_features(
+    temperatura, n, p, k, estado_bomba, id_pivo, hora, dia_semana,
+    umidade=0.0, ph=0.0,
+) -> pd.DataFrame:
     """
-    Constroi a linha de features esperada pelos modelos.
+    Constroi a linha (larga) de features candidatas para os modelos.
 
-    Features do contrato: temperatura, n, p, k, estado_bomba (1=ON/0=OFF),
-    id_pivo one-hot (p1/p2/p3), hora e dia_semana.
+    Inclui as features base (temperatura, n, p, k, estado_bomba 1=ON/0=OFF,
+    id_pivo one-hot, hora, dia_semana) MAIS as leituras de contexto umidade e ph.
+    Cada modelo usa apenas o subconjunto que viu no treino — a funcao 'prever'
+    reindexa pela 'feature_names_in_' de cada modelo (features por-alvo, sem leakage).
     """
     linha = {
         "temperatura": float(temperatura),
@@ -224,6 +229,9 @@ def montar_features(temperatura, n, p, k, estado_bomba, id_pivo, hora, dia_seman
         "estado_bomba_bin": int(estado_bomba),
         "hora": int(hora),
         "dia_semana": int(dia_semana),
+        # leituras de contexto (features dos alvos engenheirados)
+        "umidade": float(umidade),
+        "ph": float(ph),
         # one-hot do pivo
         "id_pivo_p1": 1 if id_pivo == "p1" else 0,
         "id_pivo_p2": 1 if id_pivo == "p2" else 0,
@@ -423,9 +431,11 @@ def aba_previsoes(id_pivo: str) -> dict:
     with c1:
         temperatura = st.slider("Temperatura (C)", 0.0, 50.0, 25.0, 0.1)
         hora = st.slider("Hora do dia", 0, 23, 12)
+        umidade = st.slider("Umidade do solo (%)", 0.0, 100.0, 60.0, 0.5)
     with c2:
         n = st.slider("Nitrogenio (N)", 0, 140, 70)
         p = st.slider("Fosforo (P)", 0, 140, 60)
+        ph = st.slider("pH do solo", 3.0, 10.0, 6.5, 0.1)
     with c3:
         k = st.slider("Potassio (K)", 0, 200, 60)
         dia_semana = st.selectbox(
@@ -443,7 +453,10 @@ def aba_previsoes(id_pivo: str) -> dict:
     st.caption(f"Pivo considerado na previsao: **{pivo_modelo}**")
 
     # --- Previsoes ---
-    X = montar_features(temperatura, n, p, k, estado_bomba, pivo_modelo, hora, dia_semana)
+    X = montar_features(
+        temperatura, n, p, k, estado_bomba, pivo_modelo, hora, dia_semana,
+        umidade=umidade, ph=ph,
+    )
     metrics = load_metrics()
     previsoes: dict = {}
 

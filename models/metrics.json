@@ -1,69 +1,84 @@
 {
-  "generated_at": "2026-06-19T23:09:49.018133+00:00",
+  "generated_at": "2026-06-19T23:34:04.975216+00:00",
   "random_state": 42,
   "test_size": 0.2,
   "cv_folds": 5,
-  "features": [
+  "base_features": [
     "temperatura",
     "n",
     "p",
     "k",
     "estado_bomba_bin",
     "hora",
-    "dia_semana",
-    "id_pivo_p1",
-    "id_pivo_p2",
-    "id_pivo_p3"
+    "dia_semana"
+  ],
+  "context_features": [
+    "umidade",
+    "ph"
   ],
   "targets": {
     "rendimento": {
       "best_model": "random_forest",
-      "best_cv_r2": 0.09726500591475554,
+      "best_cv_r2": 0.8598415611659711,
       "candidates": {
         "linear_regression": {
-          "cv_r2": 0.009393889255074606,
+          "cv_r2": 0.20345594550673124,
           "best_params": {}
         },
         "ridge": {
-          "cv_r2": 0.009464868988609543,
+          "cv_r2": 0.20355500446302824,
           "best_params": {
             "alpha": 10.0
           }
         },
         "random_forest": {
-          "cv_r2": 0.09726500591475554,
+          "cv_r2": 0.8598415611659711,
           "best_params": {
-            "max_depth": 12,
+            "max_depth": null,
             "n_estimators": 200
           }
         }
       },
       "test_metrics": {
-        "mae": 7.021098831653501,
-        "mse": 97.46545306895814,
-        "rmse": 9.872459322223524,
-        "r2": 0.10004881057806148
+        "mae": 2.391732443848597,
+        "mse": 12.533605647255404,
+        "rmse": 3.5402832721768753,
+        "r2": 0.8842704470679212
       },
       "n_train": 2156,
       "n_test": 540,
-      "model_path": "models/modelo_rendimento.joblib"
+      "model_path": "models/modelo_rendimento.joblib",
+      "feature_columns": [
+        "temperatura",
+        "n",
+        "p",
+        "k",
+        "estado_bomba_bin",
+        "hora",
+        "dia_semana",
+        "umidade",
+        "ph",
+        "id_pivo_p1",
+        "id_pivo_p2",
+        "id_pivo_p3"
+      ]
     },
     "volume_irrigacao": {
       "best_model": "random_forest",
-      "best_cv_r2": 0.6889598826114407,
+      "best_cv_r2": 0.9357751210828095,
       "candidates": {
         "linear_regression": {
-          "cv_r2": 0.6299353922619803,
+          "cv_r2": 0.7879621213063362,
           "best_params": {}
         },
         "ridge": {
-          "cv_r2": 0.6299984293876012,
+          "cv_r2": 0.7879922589088438,
           "best_params": {
             "alpha": 10.0
           }
         },
         "random_forest": {
-          "cv_r2": 0.6889598826114407,
+          "cv_r2": 0.9357751210828095,
           "best_params": {
             "max_depth": 12,
             "n_estimators": 400
@@ -71,31 +86,45 @@
         }
       },
       "test_metrics": {
-        "mae": 2.2602468414394545,
-        "mse": 10.48431740268808,
-        "rmse": 3.23794956765668,
-        "r2": 0.6708767416648804
+        "mae": 1.0790403094303787,
+        "mse": 1.9758461429486167,
+        "rmse": 1.40564794416974,
+        "r2": 0.9379743195900004
       },
       "n_train": 2156,
       "n_test": 540,
-      "model_path": "models/modelo_volume_irrigacao.joblib"
+      "model_path": "models/modelo_volume_irrigacao.joblib",
+      "feature_columns": [
+        "temperatura",
+        "n",
+        "p",
+        "k",
+        "estado_bomba_bin",
+        "hora",
+        "dia_semana",
+        "umidade",
+        "ph",
+        "id_pivo_p1",
+        "id_pivo_p2",
+        "id_pivo_p3"
+      ]
     },
     "necessidade_fertilizacao": {
       "best_model": "random_forest",
-      "best_cv_r2": 0.9704838025492799,
+      "best_cv_r2": 0.9698468043201582,
       "candidates": {
         "linear_regression": {
-          "cv_r2": 0.885284395924449,
+          "cv_r2": 0.8850932037409021,
           "best_params": {}
         },
         "ridge": {
-          "cv_r2": 0.8852929736944875,
+          "cv_r2": 0.8851021855516666,
           "best_params": {
             "alpha": 10.0
           }
         },
         "random_forest": {
-          "cv_r2": 0.9704838025492799,
+          "cv_r2": 0.9698468043201582,
           "best_params": {
             "max_depth": 12,
             "n_estimators": 400
@@ -103,14 +132,28 @@
         }
       },
       "test_metrics": {
-        "mae": 2.7817088360264033,
-        "mse": 12.078874680241864,
-        "rmse": 3.4754675484374564,
-        "r2": 0.9670216729534563
+        "mae": 2.806374930326264,
+        "mse": 12.26640493608649,
+        "rmse": 3.5023427782109633,
+        "r2": 0.9665096687914724
       },
       "n_train": 2156,
       "n_test": 540,
-      "model_path": "models/modelo_necessidade_fertilizacao.joblib"
+      "model_path": "models/modelo_necessidade_fertilizacao.joblib",
+      "feature_columns": [
+        "temperatura",
+        "n",
+        "p",
+        "k",
+        "estado_bomba_bin",
+        "hora",
+        "dia_semana",
+        "umidade",
+        "ph",
+        "id_pivo_p1",
+        "id_pivo_p2",
+        "id_pivo_p3"
+      ]
     },
     "umidade": {
       "best_model": "ridge",
@@ -142,7 +185,19 @@
       },
       "n_train": 2156,
       "n_test": 540,
-      "model_path": "models/modelo_umidade.joblib"
+      "model_path": "models/modelo_umidade.joblib",
+      "feature_columns": [
+        "temperatura",
+        "n",
+        "p",
+        "k",
+        "estado_bomba_bin",
+        "hora",
+        "dia_semana",
+        "id_pivo_p1",
+        "id_pivo_p2",
+        "id_pivo_p3"
+      ]
     },
     "ph": {
       "best_model": "ridge",
@@ -159,7 +214,7 @@
           }
         },
         "random_forest": {
-          "cv_r2": 0.014237270162108583,
+          "cv_r2": 0.014237270162108517,
           "best_params": {
             "max_depth": 12,
             "n_estimators": 200
@@ -174,7 +229,19 @@
       },
       "n_train": 2156,
       "n_test": 540,
-      "model_path": "models/modelo_ph.joblib"
+      "model_path": "models/modelo_ph.joblib",
+      "feature_columns": [
+        "temperatura",
+        "n",
+        "p",
+        "k",
+        "estado_bomba_bin",
+        "hora",
+        "dia_semana",
+        "id_pivo_p1",
+        "id_pivo_p2",
+        "id_pivo_p3"
+      ]
     }
   }
 }

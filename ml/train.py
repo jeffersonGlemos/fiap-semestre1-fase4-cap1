@@ -71,6 +71,29 @@ BASE_FEATURES: list[str] = [
 PIVOT_COLUMN = "id_pivo"
 PIVOT_DUMMY_PREFIX = "id_pivo"
 
+# Leituras de sensores ja disponiveis no momento da previsao (umidade e pH atuais
+# do solo). Os alvos ENGENHEIRADOS (rendimento, volume_irrigacao,
+# necessidade_fertilizacao) dependem delas por construcao, entao as recebem como
+# FEATURES extras. Os alvos REAIS (umidade, ph) usam apenas as BASE_FEATURES.
+# Regra de ouro: um alvo NUNCA entra como feature de si mesmo (evita data leakage).
+CONTEXT_FEATURES: list[str] = ["umidade", "ph"]
+
+# Features extras (alem das BASE) por alvo.
+TARGET_EXTRA_FEATURES: dict[str, list[str]] = {
+    "rendimento": CONTEXT_FEATURES,
+    "volume_irrigacao": CONTEXT_FEATURES,
+    "necessidade_fertilizacao": CONTEXT_FEATURES,
+    "umidade": [],
+    "ph": [],
+}
+
+
+def features_para_alvo(target_name: str) -> list[str]:
+    """Lista de colunas-base+extras de um alvo, com o proprio alvo removido."""
+    extras = TARGET_EXTRA_FEATURES.get(target_name, [])
+    cols = BASE_FEATURES + [c for c in extras if c != target_name]
+    return cols
+
 
 # --------------------------------------------------------------------------- #
 # Carregamento e preparacao dos dados
@@ -101,27 +124,34 @@ def load_dataset(path: Path = DATA_PATH) -> pd.DataFrame:
     )
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Monta a matriz de features ``X`` conforme o contrato.
+def build_features(
+    df: pd.DataFrame, extra_features: list[str] | None = None
+) -> pd.DataFrame:
+    """Monta a matriz de features ``X`` para um alvo.
 
-    Aplica one-hot em ``id_pivo`` (p1/p2/p3) via ``pd.get_dummies`` e garante a
-    presenca de todas as colunas-base. Espera que ``hora``, ``dia_semana`` e
-    ``estado_bomba`` (1=ON/0=OFF) ja existam no dataset processado.
+    Aplica one-hot em ``id_pivo`` (p1/p2/p3) via ``pd.get_dummies`` e inclui as
+    colunas-base mais as ``extra_features`` solicitadas (ex.: umidade/ph para os
+    alvos engenheirados). Espera que ``hora``, ``dia_semana`` e
+    ``estado_bomba_bin`` (1=ON/0=OFF) ja existam no dataset processado.
 
     Args:
-        df: DataFrame carregado do parquet.
+        df: DataFrame carregado do dataset processado.
+        extra_features: colunas extras (alem das BASE) a incluir. Default: nenhuma.
 
     Returns:
         DataFrame somente com as colunas de entrada do modelo.
     """
+    extra_features = extra_features or []
+
     # One-hot de id_pivo -> id_pivo_p1, id_pivo_p2, id_pivo_p3.
     if PIVOT_COLUMN in df.columns:
         dummies = pd.get_dummies(df[PIVOT_COLUMN], prefix=PIVOT_DUMMY_PREFIX)
     else:
-        # Caso o parquet ja venha com as dummies materializadas.
+        # Caso o dataset ja venha com as dummies materializadas.
         dummies = df[[c for c in df.columns if c.startswith(f"{PIVOT_DUMMY_PREFIX}_")]]
 
-    base = df[[c for c in BASE_FEATURES if c in df.columns]].copy()
+    cols = BASE_FEATURES + list(extra_features)
+    base = df[[c for c in cols if c in df.columns]].copy()
     X = pd.concat([base, dummies], axis=1)
 
     # Converte dummies booleanas para int (0/1) por consistencia entre versoes.
@@ -295,22 +325,32 @@ def main() -> None:
     print(f"Modelos : {MODELS_DIR}")
 
     df = load_dataset(DATA_PATH)
-    X = build_features(df)
     targets = build_targets(df)
-    feature_names = list(X.columns)
-    print(f"\nFeatures ({len(feature_names)}): {feature_names}")
-    print(f"Linhas no dataset: {len(df)}")
+    print(f"\nLinhas no dataset: {len(df)}")
+    print(f"Features base: {BASE_FEATURES} (+ one-hot id_pivo)")
+    print(f"Features de contexto (alvos engenheirados): {CONTEXT_FEATURES}")
 
     all_metrics: dict = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "random_state": RANDOM_STATE,
         "test_size": TEST_SIZE,
         "cv_folds": CV_FOLDS,
-        "features": feature_names,
+        "base_features": BASE_FEATURES,
+        "context_features": CONTEXT_FEATURES,
         "targets": {},
     }
 
     for target_name, y in targets.items():
+        # Features por-alvo: engenheirados recebem umidade/ph; reais usam so as base.
+        # A funcao ja remove o proprio alvo da lista (guarda contra data leakage).
+        extras = [c for c in features_para_alvo(target_name) if c not in BASE_FEATURES]
+        X = build_features(df, extra_features=extras)
+
+        # Sanity-check de leakage: o alvo nunca pode estar entre suas features.
+        assert target_name not in X.columns, (
+            f"LEAKAGE: alvo '{target_name}' presente em suas features {list(X.columns)}"
+        )
+
         # Split 80/20 por alvo (mesmo random_state => mesma particao de linhas).
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE
@@ -322,7 +362,9 @@ def main() -> None:
 
         out_path = save_model(best_estimator, target_name)
         metrics["model_path"] = str(out_path.relative_to(PROJECT_ROOT))
+        metrics["feature_columns"] = list(X.columns)
         all_metrics["targets"][target_name] = metrics
+        print(f"  features ({len(X.columns)}): {list(X.columns)}")
         print(f"  modelo salvo em: {out_path}")
 
     save_metrics(all_metrics, METRICS_PATH)

@@ -35,7 +35,11 @@ ALVOS = [
     "ph",
 ]
 
-# Ordem canônica das features de entrada do modelo (id_pivo já em one-hot).
+# Superconjunto de features candidatas (id_pivo já em one-hot). Cada modelo usa
+# apenas o subconjunto que viu no treino — 'prever' reindexa por
+# 'feature_names_in_' de cada modelo. 'umidade' e 'ph' são leituras de contexto:
+# entram como feature dos alvos engenheirados, mas são ignoradas pelos modelos
+# que preveem a si mesmas (sem leakage).
 FEATURE_COLUMNS = [
     "temperatura",
     "n",
@@ -44,6 +48,8 @@ FEATURE_COLUMNS = [
     "estado_bomba_bin",   # 1 = ON, 0 = OFF
     "hora",
     "dia_semana",
+    "umidade",            # contexto (feature dos alvos engenheirados)
+    "ph",                 # contexto (feature dos alvos engenheirados)
     "id_pivo_p1",
     "id_pivo_p2",
     "id_pivo_p3",
@@ -129,6 +135,9 @@ def _montar_features(entrada: Dict[str, object]) -> pd.DataFrame:
         "id_pivo_p3": 1 if id_pivo == "p3" else 0,
         "hora": int(entrada.get("hora", 0)),
         "dia_semana": int(entrada.get("dia_semana", 0)),
+        # Leituras de contexto: usadas pelos alvos engenheirados (rendimento etc.).
+        "umidade": float(entrada.get("umidade", 0.0)),
+        "ph": float(entrada.get("ph", 0.0)),
     }
     return pd.DataFrame([linha], columns=FEATURE_COLUMNS)
 
@@ -146,7 +155,11 @@ def prever(modelos: Dict[str, object], entrada: Dict[str, object]) -> Dict[str, 
     X = _montar_features(entrada)
     previsoes: Dict[str, float] = {}
     for alvo, modelo in modelos.items():
-        previsoes[alvo] = float(modelo.predict(X)[0])
+        # Cada modelo usa apenas as features que viu no treino (features por-alvo).
+        # Reindexa pela ordem/conjunto de 'feature_names_in_' do próprio modelo.
+        nomes = getattr(modelo, "feature_names_in_", None)
+        Xm = X.reindex(columns=list(nomes), fill_value=0) if nomes is not None else X
+        previsoes[alvo] = float(modelo.predict(Xm)[0])
     return previsoes
 
 

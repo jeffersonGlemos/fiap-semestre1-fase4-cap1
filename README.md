@@ -204,10 +204,24 @@ docker compose up                   # api :8000 + streamlit :8501 (Oracle vem do
 | `umidade` | % | **Real** (medido pelos sensores) |
 | `ph` | — | **Real** (medido pelos sensores) |
 
-### Features de entrada
+### Features de entrada (por-alvo)
 
-`temperatura`, `n`, `p`, `k`, `estado_bomba` (1=ON, 0=OFF), `id_pivo` (one-hot p1/p2/p3),
-`hora` e `dia_semana` (derivadas de `capturado_em`).
+Cada alvo é treinado com o conjunto de features adequado, evitando *data leakage*
+(um alvo nunca é feature de si mesmo):
+
+- **Features base** (todos os modelos): `temperatura`, `n`, `p`, `k`,
+  `estado_bomba_bin` (1=ON, 0=OFF), `id_pivo` (one-hot p1/p2/p3),
+  `hora` e `dia_semana` (derivadas de `capturado_em`).
+- **Features de contexto** (`umidade`, `ph`): adicionadas **apenas** aos alvos
+  **engenheirados** (`rendimento`, `volume_irrigacao`, `necessidade_fertilizacao`),
+  que dependem delas por construção. Os alvos **reais** (`umidade`, `ph`) usam
+  somente as features base.
+
+> **Por que isso importa:** o `rendimento` é função de umidade+pH. Sem essas duas
+> como features, o modelo previa mal (R² ≈ 0,10). Com features por-alvo, o R² do
+> rendimento sobe para **≈ 0,88** (e o de `volume_irrigacao` para **≈ 0,94**),
+> sem vazamento. O conjunto efetivo de cada modelo fica registrado em
+> `models/metrics.json` (campo `feature_columns`).
 
 ### Modelos e métricas
 
