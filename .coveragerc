@@ -1,0 +1,21 @@
+# Configuração de cobertura (coverage.py / pytest-cov) — FarmTech Fase 4 Cap 1.
+# parallel=true permite combinar a cobertura do subprocesso do dashboard
+# (tests/test_dashboard.py roda o AppTest num subprocesso) com a do processo
+# principal. Ver tests/README.md para o comando completo.
+[run]
+source =
+    db
+    ml
+    api
+    streamlit
+parallel = true
+omit =
+    */tests/*
+    */__pycache__/*
+
+[report]
+show_missing = true
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError

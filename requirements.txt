@@ -36,4 +36,5 @@ jupyter>=1.0
 
 # --- Testes ---
 pytest>=8.0            # suíte em tests/ (ML, DB, API, dashboard, consistência)
+pytest-cov>=5.0       # cobertura de código (pytest --cov)
 httpx>=0.27           # TestClient da FastAPI usado em tests/test_api.py
