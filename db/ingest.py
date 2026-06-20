@@ -1,5 +1,5 @@
 """
-Ingestão IoT → Oracle — FarmTech Solutions, Fase 4, Cap 1.
+Ingestão IoT → Banco SQL (SQLite/Oracle) — FarmTech Solutions, Fase 4, Cap 1.
 
 Autor: Jefferson Gonçalves Lemos · RM 572399 · IA — FIAP.
 
@@ -146,8 +146,12 @@ def inserir_linhas(conn, linhas: Iterable[tuple[Any, ...]]) -> int:
     return len(linhas)
 
 
-def ingest_once(path: str = DATA_PATH, simular_tempo_real: bool = False) -> int:
-    """Ingestão única: insere TODO o conteúdo do CSV de uma vez.
+def ingest_once(path: str = DATA_PATH, simular_tempo_real: bool = False, reset: bool = True) -> int:
+    """Ingestão única: carrega TODO o conteúdo do CSV de uma vez.
+
+    IDEMPOTENTE por padrão (``reset=True``): limpa a tabela antes de inserir, de
+    modo que rodar ``--once`` repetidamente sempre resulta no mesmo conteúdo (sem
+    duplicar). Use ``reset=False`` (CLI: ``--append``) para acrescentar.
 
     Parameters
     ----------
@@ -155,6 +159,8 @@ def ingest_once(path: str = DATA_PATH, simular_tempo_real: bool = False) -> int:
         Caminho do CSV.
     simular_tempo_real : bool
         Se ``True``, reescreve ``CAPTURADO_EM`` com o instante atual.
+    reset : bool
+        Se ``True`` (default), apaga as linhas existentes antes de inserir.
 
     Returns
     -------
@@ -167,8 +173,18 @@ def ingest_once(path: str = DATA_PATH, simular_tempo_real: bool = False) -> int:
     conn = wait_for_connection()
     try:
         criar_tabela(conn)  # idempotente (cria a tabela no SQLite novo)
+        if reset:
+            cur = conn.cursor()
+            try:
+                cur.execute("DELETE FROM SENSORES_FARMTECH")  # carga limpa (idempotente)
+            finally:
+                cur.close()
+            conn.commit()
         total = inserir_linhas(conn, linhas)
-        logger.info("Ingestão única concluída: %d linhas inseridas.", total)
+        logger.info(
+            "Ingestão única concluída: %d linhas inseridas%s.",
+            total, " (tabela resetada antes)" if reset else " (modo append)",
+        )
         return total
     finally:
         conn.close()
@@ -310,7 +326,7 @@ def contar_linhas() -> int:
 # ---------------------------------------------------------------------------
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Ingestão IoT → Oracle (SENSORES_FARMTECH) — FarmTech Fase 4 Cap 1.",
+        description="Ingestão IoT → Banco SQL (SENSORES_FARMTECH) — FarmTech Fase 4 Cap 1.",
     )
     modo = parser.add_mutually_exclusive_group(required=True)
     modo.add_argument(
@@ -336,6 +352,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-ciclos", type=int, default=None, help="Limite de lotes (modo --loop, opcional)."
     )
     parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Modo --once: acrescenta sem limpar a tabela (default é carga limpa/idempotente).",
+    )
+    parser.add_argument(
         "--simular-tempo-real",
         action="store_true",
         help="Reescreve CAPTURADO_EM com o instante atual (leituras 'ao vivo').",
@@ -349,7 +370,7 @@ def main(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
 
     if args.once:
-        ingest_once(path=args.path, simular_tempo_real=args.simular_tempo_real)
+        ingest_once(path=args.path, simular_tempo_real=args.simular_tempo_real, reset=not args.append)
     elif args.loop:
         ingest_loop(
             path=args.path,

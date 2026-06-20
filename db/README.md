@@ -221,5 +221,3 @@ DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
 > `ORACLE_DSN=meu-host-oracle:1521/XEPDB1`. O `wait_for_connection()` faz
 > várias tentativas com espera (o Oracle pode levar minutos para subir); no
 > SQLite a conexão é imediata.
-</content>
-</invoke>

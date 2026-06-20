@@ -107,7 +107,8 @@ fase4cap1/
 ├── ml/                             # PARTE 1 + PARTE 2 — pipeline de Machine Learning
 │   ├── prepare_dataset.py          # limpeza + features + engenharia dos alvos simulados
 │   ├── train.py                    # treino, GridSearchCV, métricas e persistência dos modelos
-│   └── notebook.ipynb              # exploração, correlações e justificativa das decisões (PARTE 2)
+│   ├── suggest.py                  # recomendações de manejo a partir das previsões
+│   └── JeffersonLemos_RM572399_fase4_cap1.ipynb   # CRISP-DM, correlações e justificativas (PARTE 2)
 │
 ├── models/                         # artefatos treinados (versionados p/ deploy cloud)
 │   ├── modelo_rendimento.joblib
@@ -117,7 +118,8 @@ fase4cap1/
 │   ├── modelo_ph.joblib
 │   └── metrics.json                # MAE, MSE, RMSE, R² de cada alvo/algoritmo
 │
-├── api/                            # FastAPI (:8000) — expõe dados Oracle e previsões
+├── api/                            # FastAPI (:8000) — expõe leituras e previsões
+│   └── main.py                     # rotas /health, /api/sensores, /api/predict
 │
 ├── streamlit/                      # PARTE 1 + IR ALÉM 2 — dashboard do gestor agrícola
 │   └── app.py                      # fonte de dados comutável via DATA_SOURCE (local|cloud)
@@ -138,7 +140,7 @@ fase4cap1/
 | Item do enunciado | Descrição | Onde está |
 |---|---|---|
 | **PARTE 1** — ML + Streamlit | Pipeline Scikit-Learn integrado a dashboard interativo (métricas, correlações, previsões em tempo real) | `ml/` + `streamlit/app.py` |
-| **PARTE 2** — Algoritmos preditivos | Modelos de regressão (linear, múltipla, não-linear) para volume de irrigação, necessidade de fertilização e rendimento, avaliados por MAE/MSE/RMSE/R² | `ml/train.py` + `ml/notebook.ipynb` |
+| **PARTE 2** — Algoritmos preditivos | Modelos de regressão (linear, múltipla, não-linear) para volume de irrigação, necessidade de fertilização e rendimento, avaliados por MAE/MSE/RMSE/R² | `ml/train.py` + `ml/suggest.py` + `ml/JeffersonLemos_RM572399_fase4_cap1.ipynb` |
 | **IR ALÉM 1** — Banco de dados IoT | Modelagem e ingestão/atualização dos dados de sensores em banco SQL **engine-agnóstico** (SQLite por padrão; Oracle XE externo via `DB_ENGINE=oracle`) | `db/` (+ Oracle XE externo opcional) |
 | **IR ALÉM 2** — Dashboard online | Dashboard analítico interativo e **online** com correlações, previsões e tendências de produtividade | `streamlit/` + `docs/DEPLOY.md` |
 

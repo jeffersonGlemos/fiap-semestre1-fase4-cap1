@@ -87,19 +87,24 @@ TARGET_MODELS: Dict[str, str] = {
     "ph": "modelo_ph.joblib",
 }
 
-# Ordem canônica das features de entrada do modelo (deve casar com ml/train.py).
-# id_pivo é codificado em one-hot (p1/p2/p3); hora e dia_semana derivam de capturado_em.
+# Superconjunto de features candidatas (deve casar com os nomes de ml/train.py).
+# Cada modelo usa apenas o subconjunto que viu no treino (features por-alvo): a
+# rota /predict reindexa por ``feature_names_in_`` de cada modelo, então a ordem
+# aqui é irrelevante. 'umidade'/'ph' são contexto (features dos alvos engenheirados);
+# id_pivo é one-hot (p1/p2/p3); hora/dia_semana derivam de capturado_em.
 FEATURE_COLUMNS: List[str] = [
     "temperatura",
     "n",
     "p",
     "k",
-    "estado_bomba",
+    "estado_bomba_bin",
+    "hora",
+    "dia_semana",
+    "umidade",
+    "ph",
     "id_pivo_p1",
     "id_pivo_p2",
     "id_pivo_p3",
-    "hora",
-    "dia_semana",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -149,6 +154,8 @@ class PredictRequest(BaseModel):
     n: float = Field(..., ge=0, le=200, examples=[70.0])
     p: float = Field(..., ge=0, le=200, examples=[60.0])
     k: float = Field(..., ge=0, le=200, examples=[60.0])
+    umidade: float = Field(60.0, ge=0, le=100, description="Umidade do solo (%).", examples=[60.0])
+    ph: float = Field(6.5, ge=0, le=14, description="pH do solo.", examples=[6.5])
     estado_bomba: int = Field(1, description="1=ON, 0=OFF", examples=[1])
     id_pivo: str = Field("p1", examples=["p1"])
     capturado_em: Optional[str] = Field(
@@ -263,7 +270,9 @@ def _build_feature_row(req: PredictRequest) -> Dict[str, float]:
         "n": float(req.n),
         "p": float(req.p),
         "k": float(req.k),
-        "estado_bomba": float(req.estado_bomba),
+        "estado_bomba_bin": float(req.estado_bomba),
+        "umidade": float(req.umidade),
+        "ph": float(req.ph),
         "id_pivo_p1": 1.0 if req.id_pivo == "p1" else 0.0,
         "id_pivo_p2": 1.0 if req.id_pivo == "p2" else 0.0,
         "id_pivo_p3": 1.0 if req.id_pivo == "p3" else 0.0,
@@ -272,18 +281,19 @@ def _build_feature_row(req: PredictRequest) -> Dict[str, float]:
     }
 
 
-def _gerar_sugestoes(previsoes: Dict[str, float]) -> List[str]:
-    """Delegação para ``ml/suggest.py`` com fallback inline.
+def _gerar_sugestoes(previsoes: Dict[str, float], leitura: Optional[Dict[str, Any]] = None) -> List[str]:
+    """Delegação para ``ml/suggest.py`` (``sugerir_acoes``) com fallback inline.
 
-    O contrato do projeto coloca a lógica de manejo em ``ml/suggest.py``. Como
-    os pacotes irmãos podem ainda não existir no momento do esqueleto, fazemos
-    import tardio com degradação graciosa para um heurístico mínimo.
+    O contrato do projeto coloca a lógica de manejo em ``ml/suggest.py``. Faz
+    import tardio com degradação graciosa para um heurístico mínimo caso o módulo
+    não esteja disponível.
     """
+    leitura = leitura or {}
     try:
-        from ml.suggest import gerar_sugestoes  # type: ignore
+        from ml.suggest import sugerir_acoes  # type: ignore
 
-        return list(gerar_sugestoes(previsoes))
-    except Exception as exc:  # pragma: no cover - ml/suggest.py ainda não pronto
+        return list(sugerir_acoes(previsoes, leitura))
+    except Exception as exc:  # pragma: no cover - fallback se ml/suggest indisponível
         logger.info("ml.suggest indisponível (%s); usando fallback inline.", exc)
 
     # ------- Fallback heurístico mínimo (coerente com as faixas do contrato) -------
@@ -335,37 +345,27 @@ def _sensores_via_parquet(limit: int) -> List[Dict[str, Any]]:
     return [{k: (str(v) if isinstance(v, datetime) else v) for k, v in r.items()} for r in registros]
 
 
-def _sensores_via_oracle(limit: int) -> List[Dict[str, Any]]:
-    """Consulta as últimas ``limit`` leituras no Oracle (modo local).
+def _sensores_via_db(limit: int) -> List[Dict[str, Any]]:
+    """Consulta as últimas ``limit`` leituras no banco SQL (modo local).
 
-    STUB COERENTE: a obtenção de conexão é delegada ao pacote ``db`` (Oracle XE
-    externo, configurado por ORACLE_DSN / ORACLE_USER / ORACLE_PASSWORD). A query
-    abaixo é a forma canônica esperada sobre a tabela ``SENSORES_FARMTECH``
-    (incluindo a coluna virtual ``PERIODO``).
+    Delega ao pacote ``db`` (``db.ingest.ler_dados``), que é engine-agnóstico:
+    SQLite por padrão, ou um Oracle XE externo se ``DB_ENGINE=oracle``. Requer que
+    a ingestão (``db/ingest.py``) já tenha populado ``SENSORES_FARMTECH``.
     """
     # Import tardio do pacote irmão `db` (raiz já está no sys.path).
-    from db.connection import get_connection  # type: ignore
+    from db.ingest import ler_dados  # type: ignore
 
-    query = """
-        SELECT ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K,
-               ESTADO_BOMBA, CAPTURADO_EM, PERIODO
-          FROM SENSORES_FARMTECH
-         ORDER BY CAPTURADO_EM DESC
-         FETCH FIRST :limit ROWS ONLY
-    """
-    registros: List[Dict[str, Any]] = []
-    with get_connection() as conn:  # context manager esperado do pacote db
-        cur = conn.cursor()
-        cur.execute(query, {"limit": limit})
-        colunas = [c[0].lower() for c in cur.description]
-        for linha in cur.fetchall():
-            registro = dict(zip(colunas, linha))
-            # Timestamps Oracle → string ISO para serialização JSON.
-            ce = registro.get("capturado_em")
-            if isinstance(ce, datetime):
-                registro["capturado_em"] = ce.isoformat()
-            registros.append(registro)
-    return registros
+    registros = ler_dados()  # list[dict] com colunas em maiúsculo (do SELECT)
+    # Mais recentes primeiro e normaliza as chaves para minúsculo (SensorReading).
+    registros = sorted(registros, key=lambda r: str(r.get("CAPTURADO_EM", "")), reverse=True)[:limit]
+    saida: List[Dict[str, Any]] = []
+    for r in registros:
+        item = {str(k).lower(): v for k, v in r.items()}
+        ce = item.get("capturado_em")
+        if isinstance(ce, datetime):
+            item["capturado_em"] = ce.isoformat()
+        saida.append(item)
+    return saida
 
 
 # --------------------------------------------------------------------------- #
@@ -390,11 +390,11 @@ def listar_sensores(
 ) -> List[Dict[str, Any]]:
     """Retorna as leituras de sensores mais recentes.
 
-    - ``DATA_SOURCE=local`` → consulta o Oracle (SENSORES_FARMTECH) via ``db``.
-    - ``DATA_SOURCE=cloud`` → lê ``data/processed/dataset_ml.parquet``.
+    - ``DATA_SOURCE=local`` → consulta o banco SQL (SENSORES_FARMTECH) via ``db``.
+    - ``DATA_SOURCE=cloud`` → lê ``data/processed/dataset_ml.parquet`` (ou o .csv).
 
-    Em caso de falha no Oracle (ex.: Oracle XE externo indisponível), faz
-    fallback automático para o Parquet, mantendo a API utilizável.
+    Em caso de falha no banco (ex.: tabela ainda não ingerida), faz fallback
+    automático para o Parquet/CSV, mantendo a API utilizável.
     """
     if DATA_SOURCE == "cloud":
         try:
@@ -403,11 +403,11 @@ def listar_sensores(
             logger.error("Falha lendo Parquet: %s", exc)
             raise HTTPException(status_code=503, detail=f"Parquet indisponível: {exc}") from exc
 
-    # modo local (Oracle), com fallback para Parquet.
+    # modo local (banco SQL), com fallback para Parquet/CSV.
     try:
-        return _sensores_via_oracle(limit)
+        return _sensores_via_db(limit)
     except Exception as exc:
-        logger.warning("Oracle indisponível (%s); tentando Parquet.", exc)
+        logger.warning("Banco SQL indisponível (%s); tentando Parquet.", exc)
         try:
             return _sensores_via_parquet(limit)
         except Exception as exc2:
@@ -436,11 +436,15 @@ def prever(req: PredictRequest) -> PredictResponse:
     if modelos:
         import pandas as pd  # import tardio
 
-        # DataFrame de 1 linha com nomes de coluna na ordem canônica de treino.
-        X = pd.DataFrame([[features[c] for c in FEATURE_COLUMNS]], columns=FEATURE_COLUMNS)
+        # Superconjunto de features candidatas (1 linha). Cada modelo usa apenas o
+        # subconjunto que viu no treino (features por-alvo): reindexamos por
+        # ``feature_names_in_`` de cada modelo, tornando a ordem irrelevante.
+        X = pd.DataFrame([features])
         for alvo, modelo in modelos.items():
             try:
-                valor = float(modelo.predict(X)[0])
+                nomes = getattr(modelo, "feature_names_in_", None)
+                Xm = X.reindex(columns=list(nomes), fill_value=0) if nomes is not None else X
+                valor = float(modelo.predict(Xm)[0])
                 previsoes[alvo] = round(valor, 3)
             except Exception as exc:  # pragma: no cover - mismatch de features etc.
                 logger.error("Falha ao prever %s: %s", alvo, exc)
@@ -449,7 +453,14 @@ def prever(req: PredictRequest) -> PredictResponse:
         fonte = "stub"
         previsoes = {alvo: 0.0 for alvo in TARGET_MODELS}
 
-    sugestoes = _gerar_sugestoes(previsoes)
+    # Leitura atual dos sensores (alimenta as regras de manejo de ml/suggest.py).
+    leitura = {
+        "temperatura": req.temperatura, "n": req.n, "p": req.p, "k": req.k,
+        "umidade": req.umidade, "ph": req.ph,
+        "estado_bomba": "ON" if int(req.estado_bomba) == 1 else "OFF",
+        "id_pivo": req.id_pivo,
+    }
+    sugestoes = _gerar_sugestoes(previsoes, leitura)
     return PredictResponse(previsoes=previsoes, sugestoes=sugestoes, fonte_modelo=fonte)
 
 

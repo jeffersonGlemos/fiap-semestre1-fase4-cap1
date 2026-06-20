@@ -1,0 +1,13 @@
+# Itens que NÃO devem entrar nas imagens Docker (api/ e streamlit/ fazem COPY da raiz)
+.git/
+__pycache__/
+*.pyc
+.venv/
+db/*.db
+*.sqlite
+*.sqlite3
+.streamlit/secrets.toml
+docs/
+*.md
+!README.md
+.dockerignore

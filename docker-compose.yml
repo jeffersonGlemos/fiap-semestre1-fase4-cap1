@@ -20,7 +20,9 @@ services:
   # API FastAPI — serve modelos e consulta o Oracle (fonte 'local'/'cloud')
   # ----------------------------------------------------------------------
   api:
-    build: ./api
+    build:
+      context: .                 # contexto = raiz (a API importa db/ e ml/, usa models/ e data/)
+      dockerfile: api/Dockerfile
     container_name: farmtech_f4c1_api
     ports:
       - "8000:8000"
@@ -49,7 +51,9 @@ services:
   # Streamlit — dashboard do Assistente Agrícola
   # ----------------------------------------------------------------------
   streamlit:
-    build: ./streamlit
+    build:
+      context: .                       # contexto = raiz (precisa de streamlit/, ml/, models/, data/, .streamlit/)
+      dockerfile: streamlit/Dockerfile
     container_name: farmtech_f4c1_streamlit
     ports:
       - "8501:8501"

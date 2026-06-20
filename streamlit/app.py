@@ -126,7 +126,7 @@ def load_data(data_source: str) -> pd.DataFrame:
         try:
             import requests  # import tardio: so necessario no modo local
 
-            resp = requests.get(f"{API_URL}/leituras", timeout=5)
+            resp = requests.get(f"{API_URL}/api/sensores", timeout=5)
             if resp.ok:
                 dados = resp.json()
                 registros = dados.get("data", dados) if isinstance(dados, dict) else dados
@@ -415,7 +415,7 @@ def aba_correlacoes(df: pd.DataFrame) -> None:
 # 7. ABA DE PREVISOES (inputs do usuario -> modelos -> 5 alvos + metricas)
 # ---------------------------------------------------------------------------
 
-def aba_previsoes(id_pivo: str) -> dict:
+def aba_previsoes(id_pivo: str) -> tuple[dict, dict]:
     """
     Coleta entradas via sliders, aplica os 5 modelos e exibe previsoes + metricas.
 
