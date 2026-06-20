@@ -33,3 +33,7 @@ oracledb>=2.0          # driver Oracle (XE externo via ORACLE_DSN, service XEPDB
 
 # --- Notebook (PARTE 2) ---
 jupyter>=1.0
+
+# --- Testes ---
+pytest>=8.0            # suíte em tests/ (ML, DB, API, dashboard, consistência)
+httpx>=0.27           # TestClient da FastAPI usado em tests/test_api.py
