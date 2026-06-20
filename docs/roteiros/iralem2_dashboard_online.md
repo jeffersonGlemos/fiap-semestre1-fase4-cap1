@@ -19,7 +19,7 @@ Demonstrar o **dashboard analítico interativo PUBLICADO ONLINE** no **Streamlit
 - `cloud` (**DEFAULT**) → lê o dataset versionado `data/processed/dataset_ml.csv` e os modelos `models/*.joblib` (ambos **commitados** no repo). Não depende de Oracle nem de SQLite no servidor.
 - `local` → consome a API FastAPI e/ou o banco SQL (`db/`), com fallback para os arquivos.
 
-Config do Streamlit em `/.streamlit/config.toml` (raiz, tema agrícola) e `requirements.txt` na raiz. **Nenhum secret é necessário.**
+Config do Streamlit em `.streamlit/config.toml` (raiz, tema agrícola) e `requirements.txt` na raiz. **Nenhum secret é necessário.**
 
 ---
 
@@ -48,7 +48,7 @@ Config do Streamlit em `/.streamlit/config.toml` (raiz, tema agrícola) e `requi
 
 **Pontos a citar:**
 - `DATA_SOURCE=cloud` evita qualquer dependência de banco no servidor.
-- Tema agrícola vem do `/.streamlit/config.toml` (raiz).
+- Tema agrícola vem do `.streamlit/config.toml` (raiz).
 
 ---
 
@@ -133,7 +133,7 @@ Config do Streamlit em `/.streamlit/config.toml` (raiz, tema agrícola) e `requi
 ## Checklist técnico — ANTES de gravar
 
 - [ ] `data/processed/dataset_ml.csv` e `models/*.joblib` **commitados** no repo (essenciais para o modo `cloud`).
-- [ ] `requirements.txt` e `/.streamlit/config.toml` na **raiz** do repo.
+- [ ] `requirements.txt` e `.streamlit/config.toml` na **raiz** do repo.
 - [ ] App publicado e buildado no Streamlit Cloud (`DATA_SOURCE=cloud` já é o default — sem secrets).
 - [ ] Testar a URL pública em **aba anônima** (garantir que carrega sem dependência local).
 - [ ] Confirmar que todos os gráficos (correlação, previsões, tendência) renderizam online.

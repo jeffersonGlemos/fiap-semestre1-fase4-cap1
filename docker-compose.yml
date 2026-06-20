@@ -4,16 +4,16 @@
 #
 # Arquitetura híbrida:
 #   - Este compose sobe APENAS dois serviços: 'api' (FastAPI) e 'streamlit'.
-#   - O Oracle XE NÃO é definido aqui: ele é REUSADO do docker-compose do Cap-3
-#     (1-semestre/Cap-3/fase3_cap1), que expõe o Oracle em localhost:1521
-#     (service XEPDB1). A tabela SENSORES_FARMTECH vive nesse Oracle externo.
+#   - O Oracle XE NÃO é definido aqui: ele é um Oracle XE EXTERNO (rodando na
+#     máquina host), que expõe o Oracle em localhost:1521 (service XEPDB1).
+#     A tabela SENSORES_FARMTECH vive nesse Oracle externo.
 #
-# Como a 'api' alcança o Oracle do Cap-3 (escolha UMA das opções):
+# Como a 'api' alcança o Oracle XE externo (escolha UMA das opções):
 #   (A) host.docker.internal  -> já configurado abaixo via extra_hosts.
 #       ORACLE_DSN aponta para host.docker.internal:1521/XEPDB1.
-#   (B) rede externa compartilhada -> suba o Cap-3 primeiro, descubra o nome
-#       da rede (docker network ls) e troque os comentários da seção 'networks',
-#       ajustando ORACLE_DSN para o hostname do container Oracle do Cap-3.
+#   (B) rede externa compartilhada -> suba o Oracle XE externo primeiro, descubra
+#       o nome da rede (docker network ls) e troque os comentários da seção
+#       'networks', ajustando ORACLE_DSN para o hostname do container Oracle.
 
 services:
   # ----------------------------------------------------------------------
@@ -27,7 +27,7 @@ services:
     environment:
       # Fonte de dados: local = Oracle/API ; cloud = parquet + joblib do repo
       DATA_SOURCE: ${DATA_SOURCE:-local}
-      # Conexão com o Oracle XE EXTERNO (vindo do Cap-3)
+      # Conexão com o Oracle XE EXTERNO
       ORACLE_DSN: ${ORACLE_DSN:-host.docker.internal:1521/XEPDB1}
       ORACLE_USER: ${ORACLE_USER:-system}
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:-oracle}
@@ -39,11 +39,11 @@ services:
       - ./models:/app/models:ro
       - ./data:/app/data:ro
     extra_hosts:
-      # Permite resolver o host da máquina (Oracle do Cap-3) de dentro do container
+      # Permite resolver o host da máquina (Oracle XE externo) de dentro do container
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     # networks:
-    #   - cap3_net   # opção (B): usar a rede do docker-compose do Cap-3
+    #   - oracle_net   # opção (B): usar a rede externa do Oracle XE
 
   # ----------------------------------------------------------------------
   # Streamlit — dashboard do Assistente Agrícola
@@ -68,15 +68,15 @@ services:
       - ./data:/app/data:ro
     restart: unless-stopped
     # networks:
-    #   - cap3_net   # opção (B): usar a rede do docker-compose do Cap-3
+    #   - oracle_net   # opção (B): usar a rede externa do Oracle XE
 
 # --------------------------------------------------------------------------
-# Opção (B) — rede externa compartilhada com o Cap-3.
-# Suba o Oracle do Cap-3 primeiro; confirme o nome real da rede com
+# Opção (B) — rede externa compartilhada com o Oracle XE externo.
+# Suba o Oracle XE externo primeiro; confirme o nome real da rede com
 # 'docker network ls' e ajuste 'name' abaixo. Depois descomente as
 # referências 'networks:' em cada serviço acima.
 # --------------------------------------------------------------------------
 # networks:
-#   cap3_net:
+#   oracle_net:
 #     external: true
-#     name: fase3_cap1_default
+#     name: oracle_net

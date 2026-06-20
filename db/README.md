@@ -13,10 +13,10 @@ quando `DATA_SOURCE=local`, fechando o fluxo **IoT → DB → ML → Dashboard**
 >
 > - **`sqlite`** (DEFAULT) — arquivo local `db/farmtech.db`, **zero configuração**
 >   e zero dependências extras. Roda em qualquer máquina, sem container.
-> - **`oracle`** — reusa o **Oracle XE** provisionado no Cap-3
->   (`1-semestre/Cap-3/fase3_cap1`, service `XEPDB1`). O driver `oracledb` só é
->   importado nesse modo (**import preguiçoso**), então o SQLite roda sem ter
->   `oracledb` instalado.
+> - **`oracle`** — conecta a um **Oracle XE externo** via as variáveis
+>   `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` (service `XEPDB1`). O driver
+>   `oracledb` só é importado nesse modo (**import preguiçoso**), então o SQLite
+>   roda sem ter `oracledb` instalado.
 >
 > A camada de dialeto (placeholders, tipos de coluna, sintaxe de `LIMIT`/
 > `TO_TIMESTAMP`) é abstraída em `connection.py`, de modo que `ingest.py` se
@@ -70,10 +70,11 @@ INTEGER` no SQLite, `VARCHAR2/NUMBER/TIMESTAMP` no Oracle.
 | `CAPTURADO_EM` | `TEXT`        | `TIMESTAMP`    | Momento da leitura (no Oracle via `TO_TIMESTAMP`).     |
 
 > No modo `sqlite`, `criar_tabela()` cria a tabela automaticamente
-> (`CREATE TABLE IF NOT EXISTS`). No modo `oracle`, a tabela já vem do schema do
-> Cap-3; `criar_tabela()` é idempotente e ignora o erro `ORA-00955` (objeto já
-> existe). O schema do Cap-3 pode ainda expor colunas extras (ex.: a coluna
-> virtual `PERIODO`), mas o `INSERT` desta fase grava apenas as 9 colunas acima.
+> (`CREATE TABLE IF NOT EXISTS`). No modo `oracle`, a tabela pode já existir no
+> schema do Oracle externo; `criar_tabela()` é idempotente e ignora o erro
+> `ORA-00955` (objeto já existe). Esse schema pode ainda expor colunas extras
+> (ex.: a coluna virtual `PERIODO`), mas o `INSERT` desta fase grava apenas as 9
+> colunas acima.
 
 ---
 
@@ -107,8 +108,8 @@ DB_ENGINE=sqlite python -m db.ingest --once
 # Reescrevendo o timestamp para o instante atual ("leituras ao vivo"):
 python -m db.ingest --once --simular-tempo-real
 
-# CSV alternativo:
-python -m db.ingest --once --path /caminho/para/outro.csv
+# CSV alternativo (caminho relativo à raiz do projeto):
+python -m db.ingest --once --path data/raw/outro.csv
 ```
 
 > Verificado: `python -m db.ingest --once` inseriu **2696 linhas** no SQLite.
@@ -172,8 +173,8 @@ print(contar_linhas())
 
 Esse é o caminho usado pelo `streamlit/app.py` quando **`DATA_SOURCE=local`**: o
 dashboard tenta a API FastAPI; se indisponível, importa `db.ingest.ler_dados` e
-lê **direto de `SENSORES_FARMTECH`** (SQLite por padrão, ou o Oracle do Cap-3 se
-`DB_ENGINE=oracle`); por fim, cai no arquivo versionado. No modo `cloud`
+lê **direto de `SENSORES_FARMTECH`** (SQLite por padrão, ou um Oracle XE externo
+se `DB_ENGINE=oracle`); por fim, cai no arquivo versionado. No modo `cloud`
 (default do deploy), a leitura usa `data/processed/dataset_ml.csv` + os modelos
 em `models/*.joblib`, sem tocar no banco.
 
@@ -184,21 +185,16 @@ DATA_SOURCE=local streamlit run streamlit/app.py
 
 ---
 
-## 4. Apontar para o Oracle do Cap-3 (opcional)
+## 4. Apontar para um Oracle XE externo (opcional)
 
-Para reusar o Oracle XE do Cap-3 em vez do SQLite:
+Para usar um **Oracle XE externo** em vez do SQLite, basta ter uma instância
+Oracle XE acessível (localmente ou em outro host) e configurar as variáveis de
+ambiente. Pode ser, inclusive, o Oracle XE da disciplina (Cap-3) — mas qualquer
+instância Oracle XE serve.
 
-**a)** Suba o container do banco (ele vive no projeto do Cap-3):
-
-```bash
-cd 1-semestre/Cap-3/fase3_cap1
-docker compose up -d oracle
-docker compose logs -f oracle   # aguarde "DATABASE IS READY TO USE" (~2 min)
-```
-
-Detalhes do serviço (de `1-semestre/Cap-3/fase3_cap1/docker-compose.yml`):
-imagem `container-registry.oracle.com/database/express:21.3.0-xe`, porta
-**`1521:1521`**, service/PDB **`XEPDB1`**, admin **`system` / `farmtech123`**.
+**a)** Garanta um Oracle XE em execução e acessível pela rede. Parâmetros padrão
+esperados pelo `db/`: service/PDB **`XEPDB1`**, porta **`1521`**, admin
+**`system` / `farmtech123`** (ajuste conforme a sua instância).
 
 **b)** Instale o driver (thin mode, sem Instant Client) e configure o engine:
 
@@ -221,8 +217,8 @@ python -m db.connection      # imprime "OK — engine=oracle ... pronta."
 DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
 ```
 
-> Em containers na mesma rede do Cap-3, use o nome do container como host, ex.:
-> `ORACLE_DSN=farmtech-fase3-oracle:1521/XEPDB1`. O `wait_for_connection()` faz
+> Para um Oracle em outro host ou container, ajuste o host do `ORACLE_DSN`, ex.:
+> `ORACLE_DSN=meu-host-oracle:1521/XEPDB1`. O `wait_for_connection()` faz
 > várias tentativas com espera (o Oracle pode levar minutos para subir); no
 > SQLite a conexão é imediata.
 </content>

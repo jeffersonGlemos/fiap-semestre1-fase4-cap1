@@ -16,8 +16,9 @@ outros pacotes do projeto, sem reimplementar regra de negócio.
 
 Arquitetura híbrida (ver CONTRATO do projeto):
 
-    DATA_SOURCE=local  → consome o Oracle XE reaproveitado do Cap-3
-                         (tabela SENSORES_FARMTECH) através do pacote ``db``.
+    DATA_SOURCE=local  → consome um Oracle XE externo (tabela SENSORES_FARMTECH)
+                         através do pacote ``db``, configurado por variáveis de
+                         ambiente (ORACLE_DSN / ORACLE_USER / ORACLE_PASSWORD).
     DATA_SOURCE=cloud  → ambiente sem Oracle (ex.: Streamlit Cloud); lê o
                          dataset processado em ``data/processed/dataset_ml.parquet``
                          e os modelos versionados em ``models/*.joblib``.
@@ -28,6 +29,7 @@ Variáveis de ambiente reconhecidas:
     MODELS_DIR         caminho da pasta de modelos joblib
     DATA_PATH          caminho do Parquet processado
     ORACLE_DSN / ORACLE_USER / ORACLE_PASSWORD → usadas pelo pacote ``db``
+                       (default DSN: localhost:1521/XEPDB1, service XEPDB1)
 
 Como executar localmente (a partir da raiz do projeto):
 
@@ -336,9 +338,10 @@ def _sensores_via_parquet(limit: int) -> List[Dict[str, Any]]:
 def _sensores_via_oracle(limit: int) -> List[Dict[str, Any]]:
     """Consulta as últimas ``limit`` leituras no Oracle (modo local).
 
-    STUB COERENTE: a obtenção de conexão é delegada ao pacote ``db`` (reuso do
-    Oracle XE do Cap-3). A query abaixo é a forma canônica esperada sobre a
-    tabela ``SENSORES_FARMTECH`` (incluindo a coluna virtual ``PERIODO``).
+    STUB COERENTE: a obtenção de conexão é delegada ao pacote ``db`` (Oracle XE
+    externo, configurado por ORACLE_DSN / ORACLE_USER / ORACLE_PASSWORD). A query
+    abaixo é a forma canônica esperada sobre a tabela ``SENSORES_FARMTECH``
+    (incluindo a coluna virtual ``PERIODO``).
     """
     # Import tardio do pacote irmão `db` (raiz já está no sys.path).
     from db.connection import get_connection  # type: ignore
@@ -390,8 +393,8 @@ def listar_sensores(
     - ``DATA_SOURCE=local`` → consulta o Oracle (SENSORES_FARMTECH) via ``db``.
     - ``DATA_SOURCE=cloud`` → lê ``data/processed/dataset_ml.parquet``.
 
-    Em caso de falha no Oracle (ex.: Cap-3 não está de pé), faz fallback
-    automático para o Parquet, mantendo a API utilizável.
+    Em caso de falha no Oracle (ex.: Oracle XE externo indisponível), faz
+    fallback automático para o Parquet, mantendo a API utilizável.
     """
     if DATA_SOURCE == "cloud":
         try:

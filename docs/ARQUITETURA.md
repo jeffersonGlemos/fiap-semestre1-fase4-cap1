@@ -4,7 +4,6 @@
 
 - Autor: **Jefferson Gonçalves Lemos** · RM **572399**
 - Disciplina: **Inteligência Artificial — FIAP**
-- Diretório base: `/projetos/fiap/1-semestre/fase4cap1`
 
 Este documento descreve em detalhe a **arquitetura híbrida** do projeto: seus
 componentes, o fluxo de dados ponta a ponta (IoT → Banco → ML → Dashboard), as
@@ -21,11 +20,11 @@ de manejo** entregues a um gestor agrícola por meio de um dashboard interativo.
 A solução é **híbrida** em dois sentidos complementares:
 
 1. **Reúso de infraestrutura de fases anteriores.** Os sensores simulados e o
-   esquema relacional (`SENSORES_FARMTECH`) já construídos no **Cap-3** são
-   reaproveitados em vez de recriados. O banco IoT (`db/`) é **engine-agnóstico**:
-   roda em **SQLite por padrão** (sem dependências externas) ou no **Oracle XE**
-   reusado do Cap-3 via `DB_ENGINE=oracle`. A Fase 4 acrescenta a camada de
-   Inteligência Artificial sobre essa base existente.
+   esquema relacional (`SENSORES_FARMTECH`) já construídos em **fases anteriores
+   da disciplina** são reaproveitados em vez de recriados. O banco IoT (`db/`) é
+   **engine-agnóstico**: roda em **SQLite por padrão** (sem dependências externas)
+   ou em um **Oracle XE externo** via `DB_ENGINE=oracle`. A Fase 4 acrescenta a
+   camada de Inteligência Artificial sobre essa base existente.
 2. **Fonte de dados comutável.** O dashboard funciona em dois modos
    (`DATA_SOURCE=local` e `DATA_SOURCE=cloud`), permitindo rodar localmente
    lendo do **banco SQL** (SQLite/Oracle via `db/`)/API — fechando o loop
@@ -49,21 +48,22 @@ A solução é **híbrida** em dois sentidos complementares:
 
 ## 2. Componentes
 
-### 2.1 Banco SQL engine-agnóstico (`db/`) — SQLite padrão · Oracle do Cap-3
+### 2.1 Banco SQL engine-agnóstico (`db/`) — SQLite padrão · Oracle XE externo
 
 - O módulo `db/` é **engine-agnóstico**, selecionado pela variável `DB_ENGINE`:
   - **`sqlite` (DEFAULT)** — arquivo local `db/farmtech.db`, **sem dependências
     externas** (não requer Docker nem o `oracledb`); ideal para rodar o loop
     IoT→DB→ML→Dashboard em qualquer máquina.
-  - **`oracle` (opcional)** — reusa o **Oracle XE do Cap-3** (importação
+  - **`oracle` (opcional)** — conecta a um **Oracle XE externo** (importação
     preguiçosa do `oracledb`, só carregado quando `DB_ENGINE=oracle`).
 - Em ambos os engines os dados de sensores IoT moram na tabela
   **`SENSORES_FARMTECH`**, com as mesmas colunas do CSV
   (`ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K, ESTADO_BOMBA, CAPTURADO_EM`).
   No Oracle, há ainda a **coluna virtual `PERIODO`** (derivada de `CAPTURADO_EM`).
-- O **`docker-compose` do Cap-3** sobe o Oracle em `localhost:1521`, serviço
-  **`XEPDB1`**. Este projeto **não** sobe Oracle próprio: ele consome o Oracle do
-  Cap-3 como dependência externa apenas no modo `oracle`.
+- O modo `oracle` conecta a um **Oracle XE externo** (DSN default
+  `localhost:1521/XEPDB1`, serviço **`XEPDB1`**). Este projeto **não** sobe Oracle
+  próprio: ele consome um Oracle XE externo como dependência apenas no modo
+  `oracle`.
 - Conexão por variáveis de ambiente: `DB_ENGINE`, `SQLITE_PATH` (sqlite) e
   `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` (oracle).
 
@@ -78,7 +78,7 @@ A solução é **híbrida** em dois sentidos complementares:
 - Domínios: `ESTADO_BOMBA ∈ {ON, OFF}`, `ID_PIVO ∈ {p1, p2, p3}`,
   `CAPTURADO_EM` é timestamp.
 - É a **fonte de verdade** dos dados de entrada, podendo ser ingerido no Oracle
-  (Cap-3) ou lido diretamente pelo `prepare_dataset.py`.
+  XE externo ou lido diretamente pelo `prepare_dataset.py`.
 
 ### 2.3 `ml/prepare_dataset.py` — preparação e engenharia de atributos
 
@@ -171,8 +171,8 @@ Materializa a integração dos dados IoT no banco SQL (tabela
   `--simular-tempo-real`). Expõe ainda `ler_dados(limit, as_dataframe)` — o
   caminho **DB → ML/Dashboard** usado quando `DATA_SOURCE=local`.
 
-Reaproveita o esquema do Cap-3 quando `DB_ENGINE=oracle`; no default (`sqlite`)
-cria/usa o arquivo `db/farmtech.db`.
+Usa o esquema `SENSORES_FARMTECH` no Oracle XE externo quando `DB_ENGINE=oracle`;
+no default (`sqlite`) cria/usa o arquivo `db/farmtech.db`.
 
 ### 2.7 `api/` — FastAPI (`:8000`)
 
@@ -186,7 +186,7 @@ cria/usa o arquivo `db/farmtech.db`.
   gráficos de correlação, previsões interativas e sugestões de manejo
   (irrigação / fertilização) derivadas das previsões.
 - **Fonte de dados comutável** por `DATA_SOURCE`:
-  - `local` → lê do **banco SQL** via `db/` (SQLite padrão ou Oracle do Cap-3),
+  - `local` → lê do **banco SQL** via `db/` (SQLite padrão ou Oracle XE externo),
     com a API como alternativa; fecha o loop IoT→DB→ML→Dashboard;
   - `cloud` (**default**) → lê `data/processed/dataset_ml.csv` + `models/*.joblib`
     versionados no repositório, sem precisar de banco.
@@ -197,7 +197,7 @@ cria/usa o arquivo `db/farmtech.db`.
 
 ```
  ┌─────────────────┐
- │  Sensores IoT   │  ESP32 / Wokwi (simulado) — Cap-3
+ │  Sensores IoT   │  ESP32 / Wokwi (simulado)
  │  (p1, p2, p3)   │
  └────────┬────────┘
           │  leituras (umidade, temp, pH, N, P, K, bomba, timestamp)
@@ -251,18 +251,20 @@ cria/usa o arquivo `db/farmtech.db`.
 
 - **`docker-compose` deste projeto:** sobe apenas **`api`** (FastAPI `:8000`) e
   **`streamlit`** (`:8501`).
-- **Oracle:** vem do **`docker-compose` do Cap-3** (externo), em
-  `localhost:1521`, serviço `XEPDB1`.
+- **Oracle:** opcional, fornecido por um **Oracle XE externo** (DSN default
+  `localhost:1521/XEPDB1`, serviço `XEPDB1`), configurado via
+  `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD`.
 
 ---
 
 ## 4. Decisões de design
 
-### 4.1 Por que arquitetura híbrida (reúso do Cap-3)
+### 4.1 Por que arquitetura híbrida (reúso de fases anteriores)
 
 O enunciado pede explicitamente partir "da estrutura lógica e relacional
 construída nas fases anteriores". Recriar um banco do zero seria redundante e
-contrariaria o objetivo de **consolidação**. Reusar o Oracle XE do Cap-3:
+contrariaria o objetivo de **consolidação**. Reusar um Oracle XE externo (por
+exemplo, o da disciplina no Cap-3):
 
 - Evita duplicação de esquema e de geração de dados.
 - Mantém uma **única fonte de verdade** para os sensores
@@ -271,14 +273,14 @@ contrariaria o objetivo de **consolidação**. Reusar o Oracle XE do Cap-3:
   (regressão, previsões, sugestões e dashboard online).
 
 Por isso o `docker-compose` local sobe só `api` + `streamlit`, tratando o Oracle
-como serviço externo já provido pelo Cap-3.
+como serviço externo.
 
 Para não amarrar a demonstração ao Docker, o banco IoT (`db/`) é
 **engine-agnóstico**: por padrão usa **SQLite** (`db/farmtech.db`, sem
 dependências), fechando o loop IoT→DB→ML→Dashboard em qualquer máquina; quando se
-quer fidelidade ao Cap-3, basta `DB_ENGINE=oracle` para reusar o Oracle XE. A
-**única fonte de verdade** (`seed_data.csv` / `SENSORES_FARMTECH`) permanece a
-mesma nos dois engines.
+quer fidelidade ao ambiente relacional, basta `DB_ENGINE=oracle` para conectar ao
+Oracle XE externo. A **única fonte de verdade** (`seed_data.csv` /
+`SENSORES_FARMTECH`) permanece a mesma nos dois engines.
 
 ### 4.2 Por que alvos simulados (engenharia agronômica)
 
@@ -301,11 +303,11 @@ fórmulas e constantes estão documentadas (seção 2.3) para total transparênc
 ### 4.3 Por que fonte de dados comutável (`DATA_SOURCE`)
 
 O deploy online no **Streamlit Community Cloud** **não alcança** um banco rodando
-em `localhost` (nem SQLite local nem o Oracle do Cap-3). Para que o mesmo `app.py`
+em `localhost` (nem SQLite local nem o Oracle XE externo). Para que o mesmo `app.py`
 rode tanto localmente quanto na nuvem, a fonte de dados é comutável:
 
 - **`DATA_SOURCE=local`** → lê do **banco SQL** via `db/` (SQLite por padrão ou
-  Oracle do Cap-3), com a API como alternativa — dados ao vivo, **fluxo IoT
+  Oracle XE externo), com a API como alternativa — dados ao vivo, **fluxo IoT
   completo**. Usado em desenvolvimento e na demonstração com banco.
 - **`DATA_SOURCE=cloud`** (**default**) → lê os **artefatos versionados** no
   repositório (`data/processed/dataset_ml.csv` + `models/*.joblib`). Usado no
@@ -326,7 +328,7 @@ ambiente local.
 |---|---|---|
 | **PARTE 1** — ML + Streamlit (dashboard estático e online) | Pipeline ML integrado ao dashboard interativo | `ml/` + `streamlit/app.py` |
 | **PARTE 2** — Regressão (linear/múltipla/não-linear) + métricas | Treino, seleção e avaliação (MAE/MSE/RMSE/R²) | `ml/train.py` + notebook |
-| **IR ALÉM 1** — Banco de dados IoT | Ingestão/atualização em SQL (`SENSORES_FARMTECH`) | `db/` (SQLite padrão · Oracle XE do Cap-3) |
+| **IR ALÉM 1** — Banco de dados IoT | Ingestão/atualização em SQL (`SENSORES_FARMTECH`) | `db/` (SQLite padrão · Oracle XE externo) |
 | **IR ALÉM 2** — Dashboard analítico online | Publicação no Streamlit Cloud (`DATA_SOURCE=cloud`) | `streamlit/` + `docs/DEPLOY.md` |
 
 ### Detalhamento
@@ -339,8 +341,8 @@ ambiente local.
   prevê `volume_irrigacao`, `necessidade_fertilizacao` e `rendimento`, e avalia
   com as quatro métricas. O notebook acompanha as visualizações justificativas.
 - **IR ALÉM 1** — A camada `db/` materializa a ingestão IoT no banco SQL
-  **engine-agnóstico** (`SENSORES_FARMTECH`; SQLite por padrão ou Oracle XE do
-  Cap-3 com coluna virtual `PERIODO`), via CLI `python -m db.ingest`
+  **engine-agnóstico** (`SENSORES_FARMTECH`; SQLite por padrão ou Oracle XE
+  externo com coluna virtual `PERIODO`), via CLI `python -m db.ingest`
   (`--once`/`--loop`), demonstrando população e atualização contínua dos dados
   de sensores e a leitura DB→ML (`ler_dados`).
 - **IR ALÉM 2** — `docs/DEPLOY.md` (este conjunto de docs) guia a publicação do
@@ -352,9 +354,9 @@ ambiente local.
 
 | Variável | Componente | Função |
 |---|---|---|
-| `DB_ENGINE` | db | `sqlite` (**default**, `db/farmtech.db`) ou `oracle` (Oracle XE do Cap-3) |
+| `DB_ENGINE` | db | `sqlite` (**default**, `db/farmtech.db`) ou `oracle` (Oracle XE externo) |
 | `SQLITE_PATH` | db | caminho do arquivo SQLite (default `db/farmtech.db`) |
-| `ORACLE_DSN` | api / db | DSN do Oracle XE (Cap-3), ex. `localhost:1521/XEPDB1` — só com `DB_ENGINE=oracle` |
+| `ORACLE_DSN` | api / db | DSN do Oracle XE externo, ex. `localhost:1521/XEPDB1` (service `XEPDB1`) — só com `DB_ENGINE=oracle` |
 | `ORACLE_USER` | api / db | usuário do banco (engine `oracle`) |
 | `ORACLE_PASSWORD` | api / db | senha do banco (engine `oracle`) |
 | `DATA_SOURCE` | streamlit | `cloud` (**default**, CSV + joblib) ou `local` (banco SQL via `db/`/API) |
@@ -366,7 +368,7 @@ ambiente local.
 
 ## 7. Resumo
 
-O **esquema relacional e os sensores** vêm do Cap-3; a Fase 4 adiciona a
+O **esquema relacional e os sensores** vêm de fases anteriores da disciplina; a Fase 4 adiciona a
 **inteligência** e um banco IoT **engine-agnóstico** (SQLite por padrão, Oracle
 opcional): engenharia de alvos reprodutível, modelos de regressão avaliados por
 MAE/MSE/RMSE/R² e um dashboard que **comuta entre o banco SQL ao vivo

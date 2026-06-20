@@ -7,13 +7,13 @@ Disciplina: Inteligencia Artificial — FIAP
 
 Este modulo e o ESQUELETO FUNCIONAL do dashboard. Ele:
   - Comuta a fonte de dados pela variavel de ambiente DATA_SOURCE:
-        * "local" -> consome a API FastAPI (API_URL) e/ou o Oracle do Cap-3;
+        * "local" -> consome a API FastAPI (API_URL) e/ou um Oracle XE externo;
         * "cloud" -> le o parquet versionado (data/processed/dataset_ml.parquet)
                      e os modelos *.joblib de models/ (deploy no Streamlit Cloud,
                      que NAO enxerga o Oracle local).
   - Carrega os 5 modelos de regressao treinados (.joblib) sob demanda;
   - Le as metricas (MAE/MSE/RMSE/R2) de models/metrics.json;
-  - Reaproveita o conceito do dashboard do Cap-3 nas abas analiticas;
+  - Reaproveita o conceito de dashboard analitico nas abas analiticas;
   - Gera previsoes a partir de entradas do usuario e sugestoes de manejo
     (delegando para ml/suggest.py quando disponivel).
 
@@ -113,8 +113,9 @@ def load_data(data_source: str) -> pd.DataFrame:
     """
     Carrega o dataset conforme a fonte configurada.
 
-    - "local": tenta a API FastAPI (API_URL); se indisponivel, tenta o Oracle
-      do Cap-3 via oracledb; por fim cai no parquet/CSV local.
+    - "local": tenta a API FastAPI (API_URL); se indisponivel, tenta um
+      Oracle XE externo (ORACLE_DSN/ORACLE_USER/ORACLE_PASSWORD, DSN padrao
+      localhost:1521/XEPDB1) via oracledb; por fim cai no parquet/CSV local.
     - "cloud": le o parquet versionado; se ausente, usa o CSV bruto.
 
     Retorna sempre um DataFrame com colunas em minusculo (pode estar vazio).
@@ -135,7 +136,7 @@ def load_data(data_source: str) -> pd.DataFrame:
         except Exception:  # pragma: no cover - fallback silencioso
             pass
 
-        # 2) Banco SQL via db/ (SQLite por padrao; Oracle do Cap-3 se DB_ENGINE=oracle).
+        # 2) Banco SQL via db/ (SQLite por padrao; Oracle XE externo se DB_ENGINE=oracle).
         #    Fecha o loop IoT -> DB -> Dashboard: le as leituras ingeridas por
         #    db/ingest.py diretamente de SENSORES_FARMTECH.
         try:
@@ -288,7 +289,7 @@ def filtrar_por_pivo(df: pd.DataFrame, pivo: str) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 6. ABAS ANALITICAS (conceito reaproveitado do dashboard do Cap-3)
+# 6. ABAS ANALITICAS (conceito reaproveitado de dashboard analitico)
 # ---------------------------------------------------------------------------
 
 def aba_visao_geral(df: pd.DataFrame) -> None:

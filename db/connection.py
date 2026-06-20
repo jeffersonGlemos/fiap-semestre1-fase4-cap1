@@ -7,9 +7,8 @@ IR ALÉM 1 — Integração IoT → banco SQL.
 
 Por padrão usa **SQLite** (arquivo local, zero configuração) para que a ingestão
 dos dados de sensores rode e seja demonstrável em qualquer máquina, sem depender
-de container. Para reusar o **Oracle XE** provisionado no Cap-3
-(``1-semestre/Cap-3/fase3_cap1``), basta ``DB_ENGINE=oracle`` — o módulo
-``oracledb`` só é importado nesse caso (import preguiçoso).
+de container. Para reusar um **Oracle XE externo**, basta ``DB_ENGINE=oracle`` — o
+módulo ``oracledb`` só é importado nesse caso (import preguiçoso).
 
 A camada de dialeto (placeholders, tipos, LIMIT) é abstraída para que
 ``db/ingest.py`` funcione igual nos dois engines.
@@ -82,7 +81,7 @@ def get_connection():
 def wait_for_connection(retries: int = 30, delay: float = 2.0):
     """Tenta conectar repetidamente até o banco responder.
 
-    Útil para o Oracle do Cap-3, que pode levar minutos para subir. No SQLite a
+    Útil para um Oracle XE externo, que pode levar minutos para subir. No SQLite a
     conexão é imediata (uma tentativa basta).
     """
     last_exc: Exception | None = None
@@ -174,7 +173,7 @@ def criar_tabela(conn) -> None:
     cur = conn.cursor()
     try:
         if is_oracle():
-            # No Oracle a tabela já vem do schema do Cap-3; tenta criar e ignora
+            # No Oracle a tabela pode já existir no schema; tenta criar e ignora
             # ORA-00955 (objeto já existe).
             try:
                 cur.execute(create_table_sql())

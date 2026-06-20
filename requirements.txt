@@ -29,7 +29,7 @@ uvicorn>=0.27          # servidor ASGI
 requests>=2.31         # cliente HTTP usado pelo Streamlit quando DATA_SOURCE=local
 
 # --- Banco de dados IoT (IR ALÉM 1) ---
-oracledb>=2.0          # driver Oracle (XE reusado do Cap-3, service XEPDB1)
+oracledb>=2.0          # driver Oracle (XE externo via ORACLE_DSN, service XEPDB1)
 
 # --- Notebook (PARTE 2) ---
 jupyter>=1.0

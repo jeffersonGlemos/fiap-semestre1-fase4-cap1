@@ -17,7 +17,7 @@ fechando o ciclo da *Agricultura Cognitiva*:
 1. **Coleta** — sensores reais/simulados (ESP32/Wokwi) alimentam um histórico de leituras.
 2. **Armazenamento** — os dados são persistidos em um banco relacional **engine-agnóstico**
    (`db/`): **SQLite por padrão** (arquivo `db/farmtech.db`, zero dependências) ou **Oracle XE**
-   opcional (reaproveitado do Cap-3) via `DB_ENGINE=oracle`, sempre na tabela `SENSORES_FARMTECH`.
+   externo opcional via `DB_ENGINE=oracle`, sempre na tabela `SENSORES_FARMTECH`.
 3. **Aprendizado** — modelos de **regressão supervisionada** (Scikit-Learn) preveem variáveis
    críticas do campo: rendimento, volume de irrigação, necessidade de fertilização, umidade e pH.
 4. **Decisão** — o dashboard **Streamlit** apresenta métricas, correlações e previsões em tempo
@@ -44,7 +44,7 @@ repositório (`DATA_SOURCE=cloud`).
                           ┌──────────────────────────────────────────────────────────┐
                           │  BANCO SQL  —  db/  ENGINE-AGNÓSTICO (via DB_ENGINE)     │
                           │  sqlite (DEFAULT): arquivo db/farmtech.db                │
-                          │  oracle (opcional): Oracle XE do Cap-3 · XEPDB1 (EXTERNO)│
+                          │  oracle (opcional): Oracle XE · XEPDB1 (EXTERNO)         │
                           │  Tabela SENSORES_FARMTECH (+ PERIODO virtual no Oracle)  │
                           └───────────────────────────┬──────────────────────────────┘
                                                       │ leitura via db/ (ler_dados → ML)
@@ -71,7 +71,7 @@ repositório (`DATA_SOURCE=cloud`).
    └───────────────────────────────┘                        └────────────────┬───────────────────┘
                                                                              │ DATA_SOURCE
                                           ┌──────────────────────────────────┴──────────────────────────────┐
-                                          │  local  →  lê do banco SQL via db/ (SQLite padrão · Oracle Cap-3) │
+                                          │  local  →  lê do banco SQL via db/ (SQLite padrão · Oracle ext.)  │
                                           │  cloud  →  lê data/processed/dataset_ml.csv + models/*.joblib     │
                                           └───────────────────────────────────────────────────────────────────┘
                                                                              │
@@ -84,7 +84,7 @@ repositório (`DATA_SOURCE=cloud`).
 ```
 
 > **docker-compose deste projeto** sobe apenas **api** (FastAPI :8000) + **streamlit** (:8501).
-> O **Oracle é externo**, fornecido pelo `docker-compose` do **Cap-3** (`1-semestre/Cap-3/fase3_cap1`).
+> O **Oracle é externo** (Oracle XE), conectado via `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` (default DSN `localhost:1521/XEPDB1`, service `XEPDB1`).
 
 ---
 
@@ -94,9 +94,8 @@ repositório (`DATA_SOURCE=cloud`).
 fase4cap1/
 ├── README.md                       # este arquivo — visão geral do projeto
 ├── enunciado.md                    # enunciado oficial da Fase 4 (FIAP)
-├── analise_gap.md                  # análise enunciado × já implementado (reuso Cap-2/Cap-3)
 ├── requirements.txt                # dependências Python (sklearn, pandas, streamlit, fastapi...)
-├── docker-compose.yml              # sobe api + streamlit (Oracle vem do Cap-3, externo)
+├── docker-compose.yml              # sobe api + streamlit (Oracle XE externo, opcional)
 ├── .streamlit/config.toml          # config/tema do Streamlit (lido na RAIZ pelo Cloud e Docker)
 │
 ├── data/
@@ -140,7 +139,7 @@ fase4cap1/
 |---|---|---|
 | **PARTE 1** — ML + Streamlit | Pipeline Scikit-Learn integrado a dashboard interativo (métricas, correlações, previsões em tempo real) | `ml/` + `streamlit/app.py` |
 | **PARTE 2** — Algoritmos preditivos | Modelos de regressão (linear, múltipla, não-linear) para volume de irrigação, necessidade de fertilização e rendimento, avaliados por MAE/MSE/RMSE/R² | `ml/train.py` + `ml/notebook.ipynb` |
-| **IR ALÉM 1** — Banco de dados IoT | Modelagem e ingestão/atualização dos dados de sensores em banco SQL **engine-agnóstico** (SQLite por padrão; Oracle XE do Cap-3 via `DB_ENGINE=oracle`) | `db/` (+ Oracle opcional do Cap-3) |
+| **IR ALÉM 1** — Banco de dados IoT | Modelagem e ingestão/atualização dos dados de sensores em banco SQL **engine-agnóstico** (SQLite por padrão; Oracle XE externo via `DB_ENGINE=oracle`) | `db/` (+ Oracle XE externo opcional) |
 | **IR ALÉM 2** — Dashboard online | Dashboard analítico interativo e **online** com correlações, previsões e tendências de produtividade | `streamlit/` + `docs/DEPLOY.md` |
 
 ---
@@ -148,8 +147,8 @@ fase4cap1/
 ## Como rodar
 
 > Pré-requisitos: Python 3.11+. O banco usa **SQLite por padrão** (zero dependências externas);
-> Docker/Docker Compose e o repositório do **Cap-3** (`1-semestre/Cap-3/fase3_cap1`) só são
-> necessários se quiser usar o **Oracle XE** (`DB_ENGINE=oracle`) — ver passo 6.
+> Docker/Docker Compose e um **Oracle XE externo** acessível só são
+> necessários se quiser usar o Oracle (`DB_ENGINE=oracle`) — ver passo 6.
 
 > Rode os comandos a partir da raiz do projeto (`fase4cap1/`).
 
@@ -190,27 +189,27 @@ streamlit run streamlit/app.py                      # dashboard em http://localh
 DATA_SOURCE=local streamlit run streamlit/app.py
 ```
 
-**6. (Opcional) Usar o Oracle XE do Cap-3 no lugar do SQLite**
+**6. (Opcional) Usar um Oracle XE externo no lugar do SQLite**
 
 ```bash
-cd ../Cap-3/fase3_cap1 && docker compose up -d oracle   # Oracle XE em localhost:1521 · XEPDB1
-# de volta na raiz do projeto, aponte a ingestão/leitura para o Oracle:
-DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
+# Tenha um Oracle XE externo acessível (service XEPDB1) com as credenciais exportadas.
+# A partir da raiz do projeto, aponte a ingestão/leitura para o Oracle via variáveis de ambiente:
+DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 ORACLE_USER=... ORACLE_PASSWORD=... python -m db.ingest --once
 ```
 
 **7. (Opcional) Subir tudo via Docker Compose** (api + streamlit)
 
 ```bash
-docker compose up                   # api :8000 + streamlit :8501 (Oracle vem do Cap-3)
+docker compose up                   # api :8000 + streamlit :8501 (Oracle XE externo, opcional)
 ```
 
 ### Variáveis de ambiente
 
 | Variável | Componente | Descrição |
 |---|---|---|
-| `DB_ENGINE` | db | `sqlite` (**default**, arquivo `db/farmtech.db`) ou `oracle` (reusa o Oracle XE do Cap-3) |
+| `DB_ENGINE` | db | `sqlite` (**default**, arquivo `db/farmtech.db`) ou `oracle` (Oracle XE externo) |
 | `SQLITE_PATH` | db | Caminho do arquivo SQLite (default `db/farmtech.db`) |
-| `ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD` | api / db | Conexão com o Oracle XE do Cap-3 (só com `DB_ENGINE=oracle`) |
+| `ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD` | api / db | Conexão com o Oracle XE externo — default DSN `localhost:1521/XEPDB1`, service `XEPDB1` (só com `DB_ENGINE=oracle`) |
 | `DATA_SOURCE` | streamlit | `cloud` (**default**, lê `dataset_ml.csv` + `models/*.joblib`) ou `local` (lê do banco SQL via `db/`/API) |
 | `API_URL` | streamlit | URL da API FastAPI (modo local) |
 | `MODELS_DIR`, `DATA_PATH` | ml / streamlit / api | Caminhos dos modelos e do dataset processado |
@@ -278,5 +277,3 @@ Essa distinção é assumida explicitamente: o objetivo é demonstrar o **pipeli
 - **`docs/DEPLOY.md`** — guia de publicação do dashboard online (Streamlit Cloud, modo `DATA_SOURCE=cloud`).
 - **`docs/roteiros/`** — roteiros dos vídeos de entrega (PARTE 1, PARTE 2, IR ALÉM 1 e IR ALÉM 2).
 - **`enunciado.md`** — enunciado oficial da atividade da Fase 4.
-- **`analise_gap.md`** — análise do que o enunciado pede × o que já existe nos capítulos anteriores
-  (reaproveitamento de dados, banco e dashboard dos Cap-2 e Cap-3).

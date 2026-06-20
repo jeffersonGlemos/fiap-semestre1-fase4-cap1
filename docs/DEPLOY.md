@@ -5,7 +5,6 @@
 - Autor: **Jefferson Gonçalves Lemos** · RM **572399**
 - Disciplina: **Inteligência Artificial — FIAP**
 - Repositório: **https://github.com/jeffersonGlemos/fiap-semestre1-fase4-cap1** (branch `main`)
-- Diretório base: `/projetos/fiap/1-semestre/fase4cap1`
 
 Este guia descreve, passo a passo, como publicar o dashboard no **Streamlit
 Community Cloud** (entregável do **IR ALÉM 2 — Dashboard Analítico com Previsões
@@ -30,7 +29,7 @@ comutável**, controlada pela variável `DATA_SOURCE`:
 | Modo | `DATA_SOURCE` | Fonte dos dados | Uso |
 |---|---|---|---|
 | **Online (default)** | `cloud` | `data/processed/dataset_ml.csv` + `models/*.joblib` (versionados no repo) | **Streamlit Cloud** |
-| Local | `local` | API FastAPI + banco SQL (Oracle XE do Cap-3 ou SQLite da ingestão IoT) | desenvolvimento, demo com banco |
+| Local | `local` | API FastAPI + banco SQL (Oracle XE externo ou SQLite da ingestão IoT) | desenvolvimento, demo com banco |
 
 Pontos-chave do modo `cloud` (o que o Streamlit Cloud usa):
 
@@ -71,7 +70,7 @@ models/modelo_ph.joblib
 models/metrics.json                                ← métricas (MAE/MSE/RMSE/R²) dos 5 modelos
 ```
 
-Verifique antes do push (a partir do diretório base):
+Verifique antes do push (a partir da raiz do projeto):
 
 ```bash
 git ls-files data/processed/dataset_ml.csv models/
@@ -216,14 +215,15 @@ modo `local` com o fluxo IoT→DB→ML completo conectado ao banco.
 
 O `docker-compose.yml` deste projeto sobe **apenas dois serviços**: `api`
 (FastAPI `:8000`) e `streamlit` (`:8501`). O Oracle XE **não** é definido aqui —
-ele é **reusado do Cap-3** (service `XEPDB1`, em `localhost:1521`).
+ele é **reusado de um Oracle XE externo** (service `XEPDB1`, em `localhost:1521`),
+acessado via `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD`.
 
 ### 6.1 Modo `cloud` local (rápido, sem banco)
 
 Reproduz exatamente o deploy online, lendo o CSV + modelos versionados:
 
 ```bash
-# a partir de /projetos/fiap/1-semestre/fase4cap1
+# a partir da raiz do projeto
 DATA_SOURCE=cloud docker compose up -d streamlit
 ```
 
@@ -235,20 +235,17 @@ DATA_SOURCE=cloud streamlit run streamlit/app.py
 
 Acesse **http://localhost:8501**.
 
-### 6.2 Modo `local` com banco (demo com Oracle do Cap-3)
+### 6.2 Modo `local` com banco (demo com Oracle XE externo)
 
-1. Suba o Oracle XE do Cap-3 (fonte da tabela `SENSORES_FARMTECH`):
-
-   ```bash
-   docker compose -f 1-semestre/Cap-3/fase3_cap1/docker-compose.yml up -d
-   ```
-
-   Isso disponibiliza o Oracle XE em `localhost:1521`, serviço **`XEPDB1`**.
+1. Tenha um **Oracle XE externo** disponível (fonte da tabela
+   `SENSORES_FARMTECH`) escutando em `localhost:1521`, serviço **`XEPDB1`** — pode
+   ser, por exemplo, o Oracle da disciplina (Cap-3). A conexão é feita apenas via
+   as variáveis `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD`.
 
 2. Suba `api` + `streamlit` deste projeto em modo `local`:
 
    ```bash
-   # a partir de /projetos/fiap/1-semestre/fase4cap1
+   # a partir da raiz do projeto
    export DATA_SOURCE=local
    export ORACLE_DSN="host.docker.internal:1521/XEPDB1"
    export ORACLE_USER="system"
@@ -258,7 +255,7 @@ Acesse **http://localhost:8501**.
    docker compose up -d
    ```
 
-   O compose já resolve o host da máquina (Oracle do Cap-3) via
+   O compose já resolve o host da máquina (Oracle XE externo) via
    `extra_hosts: host.docker.internal:host-gateway`.
 
 3. Acesse o dashboard em **http://localhost:8501** e a API em
@@ -283,4 +280,4 @@ Acesse **http://localhost:8501**.
 5. Deploy, valide pelo checklist (§4) e compartilhe a URL pública.
 
 Para a demonstração com banco ao vivo, use a **alternativa local** com
-`docker compose` (Oracle do Cap-3 + api + streamlit em modo `local`).
+`docker compose` (Oracle XE externo + api + streamlit em modo `local`).

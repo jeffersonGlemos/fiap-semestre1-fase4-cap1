@@ -4,7 +4,7 @@
 #
 # IMPORTANTE — contexto de build:
 #   Esta imagem deve ser construída a partir da RAIZ do projeto
-#   (/projetos/fiap/1-semestre/fase4cap1), e não de dentro de api/, porque a
+#   (e não de dentro de api/), porque a
 #   aplicação importa os pacotes irmãos `db` e `ml` e usa `models/` e
 #   `data/processed/`. No docker-compose declare:
 #

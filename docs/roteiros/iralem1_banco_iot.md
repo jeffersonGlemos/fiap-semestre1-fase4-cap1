@@ -16,7 +16,7 @@ Demonstrar a **ingestão e a população dos dados IoT** dos sensores num **banc
 
 **Arquitetura engine-agnóstica.** O módulo `db/` funciona com **dois engines**, escolhidos pela variável `DB_ENGINE`:
 - `sqlite` (**DEFAULT**, arquivo `db/farmtech.db`) — roda sem nenhuma dependência externa;
-- `oracle` — **reutiliza o Oracle XE da Fase 3** (`1-semestre/Cap-3/fase3_cap1`, serviço `XEPDB1`); o módulo `oracledb` só é importado quando `DB_ENGINE=oracle` (import preguiçoso).
+- `oracle` — conecta a um **Oracle XE externo** via variáveis de ambiente `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` (DSN default `localhost:1521/XEPDB1`, service `XEPDB1`); o módulo `oracledb` só é importado quando `DB_ENGINE=oracle` (import preguiçoso).
 
 A tabela central é `SENSORES_FARMTECH`, com as colunas: `ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K, ESTADO_BOMBA, CAPTURADO_EM`.
 
@@ -37,7 +37,7 @@ Vídeo curto: ser direto, sem blocos longos de explicação.
 ### Bloco 0 — Abertura e arquitetura (0:00 – 0:25)
 
 **Fala (resumo):**
-> "Jefferson Lemos, RM 572399. Neste IR ALÉM 1 mostro a ingestão de dados de sensores IoT num banco SQL. O módulo `db/` é engine-agnóstico: por padrão usa **SQLite** — arquivo `db/farmtech.db`, sem nenhum serviço externo — e, com `DB_ENGINE=oracle`, reaproveita o **Oracle XE da Fase 3**. A tabela é a `SENSORES_FARMTECH`."
+> "Jefferson Lemos, RM 572399. Neste IR ALÉM 1 mostro a ingestão de dados de sensores IoT num banco SQL. O módulo `db/` é engine-agnóstico: por padrão usa **SQLite** — arquivo `db/farmtech.db`, sem nenhum serviço externo — e, com `DB_ENGINE=oracle`, conecta a um **Oracle XE externo** (por exemplo, o da disciplina/Cap-3) via variáveis de ambiente. A tabela é a `SENSORES_FARMTECH`."
 
 **Tela:**
 - Diagrama rápido: sensores → CSV (`data/raw/seed_data.csv`) → banco SQL (`db/`) → ML → Dashboard.
@@ -51,7 +51,7 @@ Vídeo curto: ser direto, sem blocos longos de explicação.
 **Fala (resumo):**
 > "A modelagem espelha o sensor: `ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K, ESTADO_BOMBA e CAPTURADO_EM`. A criação da tabela é idempotente (`criar_tabela`) e o dialeto SQL muda por engine — SQLite usa `?` e `TEXT/REAL`; Oracle usa `:n` e `TO_TIMESTAMP`. A ingestão lê o `seed_data.csv` (2696 leituras dos pivôs) e insere em lote com `executemany`. Rodo a carga única."
 
-**Tela — rodar a partir de `/projetos/fiap/1-semestre/fase4cap1`:**
+**Tela — rodar a partir da raiz do projeto:**
 ```bash
 python -m db.ingest --once
 ```
@@ -86,7 +86,7 @@ python -m db.ingest --loop --simular-tempo-real --interval 5 --batch-size 5 --ma
 ### Bloco 3 — Ciclo fechado IoT → DB → Dashboard (2:15 – 2:40)
 
 **Fala (resumo):**
-> "O ciclo fecha aqui: subo o dashboard em `DATA_SOURCE=local`, que lê **do banco SQL** via `ler_dados()`. Os dados que acabei de ingerir aparecem no painel — IoT, banco e dashboard num fluxo só. E, se eu quiser persistir no Oracle do Cap-3, é só subir o Cap-3 e rodar com `DB_ENGINE=oracle`."
+> "O ciclo fecha aqui: subo o dashboard em `DATA_SOURCE=local`, que lê **do banco SQL** via `ler_dados()`. Os dados que acabei de ingerir aparecem no painel — IoT, banco e dashboard num fluxo só. E, se eu quiser persistir num Oracle XE externo, basta definir `ORACLE_DSN`/`ORACLE_USER`/`ORACLE_PASSWORD` e rodar com `DB_ENGINE=oracle`."
 
 **Tela:**
 ```bash
@@ -95,8 +95,8 @@ DATA_SOURCE=local streamlit run streamlit/app.py
 - Mostrar o seletor de pivô / dados refletindo as leituras ingeridas (fonte: 🖥️ Local).
 - Citar a alternativa Oracle:
 ```bash
-# subir o Cap-3 primeiro; depois:
-DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
+# com o Oracle XE externo no ar; depois:
+DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 ORACLE_USER=... ORACLE_PASSWORD=... python -m db.ingest --once
 ```
 
 **Fala de fecho:**
@@ -107,7 +107,7 @@ DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
 ## Checklist — o que MOSTRAR na tela
 
 - [ ] Identificação: nome, RM 572399, Fase 4 Cap 1.
-- [ ] Arquitetura engine-agnóstica: `DB_ENGINE=sqlite` (default, `db/farmtech.db`) ou `oracle` (Oracle XE do Cap-3, `XEPDB1`).
+- [ ] Arquitetura engine-agnóstica: `DB_ENGINE=sqlite` (default, `db/farmtech.db`) ou `oracle` (Oracle XE externo, service `XEPDB1`).
 - [ ] Estrutura de `db/`: `connection.py` (engines + dialeto SQL) e `ingest.py` (CLI).
 - [ ] Colunas da tabela `SENSORES_FARMTECH` (espelham o CSV).
 - [ ] `python -m db.ingest --once` → **2696 linhas** inseridas.
@@ -121,9 +121,9 @@ DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
 
 ## Checklist técnico — ANTES de gravar
 
-- [ ] Estar na raiz: `/projetos/fiap/1-semestre/fase4cap1`.
+- [ ] Estar na raiz do repositório.
 - [ ] (Opcional) Apagar `db/farmtech.db` antes, para a contagem começar limpa e mostrar exatamente 2696.
 - [ ] Ter os comandos prontos: `--once`, `--loop --simular-tempo-real`, `contar_linhas()`.
 - [ ] Dashboard testado em `DATA_SOURCE=local` (lendo do SQLite).
-- [ ] (Se for demonstrar Oracle) Cap-3 no ar e `ORACLE_DSN/ORACLE_USER/ORACLE_PASSWORD` definidos — mas o caminho SQLite default **não** exige `oracledb`.
+- [ ] (Se for demonstrar Oracle) Oracle XE externo no ar e `ORACLE_DSN/ORACLE_USER/ORACLE_PASSWORD` definidos — mas o caminho SQLite default **não** exige `oracledb`.
 - [ ] Ensaiar para fechar em ~2min40s (3 min é apertado — ir direto ao ponto).

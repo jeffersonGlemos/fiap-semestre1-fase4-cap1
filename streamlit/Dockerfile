@@ -1,7 +1,7 @@
 # Dockerfile do dashboard Streamlit — FarmTech Solutions (Fase 4 / Cap. 1)
 #
-# IMPORTANTE: o build deve ser feito a partir da RAIZ do projeto
-# (/projetos/fiap/1-semestre/fase4cap1), pois a imagem precisa de:
+# IMPORTANTE: o build deve ser feito a partir da RAIZ do projeto,
+# pois a imagem precisa de:
 #   - streamlit/        (app + config)
 #   - ml/               (suggest.py usado nas sugestoes de manejo)
 #   - models/           (modelos .joblib + metrics.json) — modo "cloud"

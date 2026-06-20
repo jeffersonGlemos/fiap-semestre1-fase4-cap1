@@ -4,7 +4,7 @@ Ingestão IoT → Oracle — FarmTech Solutions, Fase 4, Cap 1.
 Autor: Jefferson Gonçalves Lemos · RM 572399 · IA — FIAP.
 
 IR ALÉM 1 — Pipeline de integração entre os sensores de campo (IoT) e o banco
-Oracle XE reusado do Cap-3 (``1-semestre/Cap-3/fase3_cap1``).
+SQL (SQLite por padrão, ou um Oracle XE externo via ``DB_ENGINE=oracle``).
 
 Este script tem duas responsabilidades:
 
@@ -248,8 +248,8 @@ def ler_dados(limit: int | None = None, as_dataframe: bool = False):
 
     Faz um SELECT ordenado por ``CAPTURADO_EM`` e devolve os registros. Esta é a
     porta de entrada usada pelo ``ml/`` e pelo ``streamlit/app.py`` quando
-    ``DATA_SOURCE=local`` (fonte = banco SQL: SQLite por padrão, ou o Oracle do
-    Cap-3 quando ``DB_ENGINE=oracle``).
+    ``DATA_SOURCE=local`` (fonte = banco SQL: SQLite por padrão, ou um Oracle XE
+    externo quando ``DB_ENGINE=oracle``).
 
     Parameters
     ----------
