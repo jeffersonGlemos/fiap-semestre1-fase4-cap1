@@ -30,6 +30,7 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # 2) Codigo e artefatos necessarios para o app rodar.
+COPY .streamlit/ ./.streamlit/
 COPY streamlit/ ./streamlit/
 COPY ml/ ./ml/
 COPY models/ ./models/

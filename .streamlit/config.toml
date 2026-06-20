@@ -1,0 +1,24 @@
+# Configuracao do Streamlit — FarmTech Solutions (Fase 4 / Cap. 1)
+# Fica na RAIZ do repo: e daqui que o Streamlit Cloud e o Docker (WORKDIR /app,
+# `streamlit run streamlit/app.py`) leem o config do projeto.
+
+[theme]
+base = "light"
+primaryColor = "#2e7d32"              # verde folha (acoes/destaques)
+backgroundColor = "#f7faf5"           # fundo claro levemente esverdeado
+secondaryBackgroundColor = "#e8f0e3"  # cards / sidebar
+textColor = "#1b3a1b"                 # verde escuro para boa leitura
+font = "sans serif"
+
+[server]
+# Porta/endereco NAO sao fixados aqui (o Streamlit Cloud os gerencia, e fixar
+# 'port' conflita com o modo de desenvolvimento). No Docker a porta vem do CMD.
+headless = true                       # nao tenta abrir navegador (containers/cloud)
+enableXsrfProtection = true           # protecao XSRF (default seguro)
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false              # sem telemetria
+
+[runner]
+fastReruns = true

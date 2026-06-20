@@ -135,18 +135,15 @@ def load_data(data_source: str) -> pd.DataFrame:
         except Exception:  # pragma: no cover - fallback silencioso
             pass
 
-        # 2) Oracle XE do Cap-3 (leitura direta da tabela SENSORES_FARMTECH)
+        # 2) Banco SQL via db/ (SQLite por padrao; Oracle do Cap-3 se DB_ENGINE=oracle).
+        #    Fecha o loop IoT -> DB -> Dashboard: le as leituras ingeridas por
+        #    db/ingest.py diretamente de SENSORES_FARMTECH.
         try:
-            import oracledb  # import tardio
+            from db.ingest import ler_dados  # import tardio (BASE_DIR ja esta no sys.path)
 
-            dsn = os.getenv("ORACLE_DSN")
-            user = os.getenv("ORACLE_USER")
-            pwd = os.getenv("ORACLE_PASSWORD")
-            if dsn and user and pwd:
-                with oracledb.connect(user=user, password=pwd, dsn=dsn) as conn:
-                    df = pd.read_sql("SELECT * FROM SENSORES_FARMTECH", conn)
-                    if not df.empty:
-                        return _normalizar_colunas(df)
+            df = ler_dados(as_dataframe=True)
+            if not df.empty:
+                return _normalizar_colunas(df)
         except Exception:  # pragma: no cover - fallback silencioso
             pass
 

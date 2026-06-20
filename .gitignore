@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .streamlit/secrets.toml
+
+# Banco SQLite local da ingestão IoT (IR ALÉM 1) — não versionar
+db/*.db
+*.sqlite
+*.sqlite3

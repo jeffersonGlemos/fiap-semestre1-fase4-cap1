@@ -15,16 +15,18 @@ sensores IoT (umidade, temperatura, pH, NPK e estado da bomba) em **conhecimento
 fechando o ciclo da *Agricultura Cognitiva*:
 
 1. **Coleta** — sensores reais/simulados (ESP32/Wokwi) alimentam um histórico de leituras.
-2. **Armazenamento** — os dados são persistidos em banco relacional (Oracle XE reaproveitado
-   do Cap-3, tabela `SENSORES_FARMTECH`).
+2. **Armazenamento** — os dados são persistidos em um banco relacional **engine-agnóstico**
+   (`db/`): **SQLite por padrão** (arquivo `db/farmtech.db`, zero dependências) ou **Oracle XE**
+   opcional (reaproveitado do Cap-3) via `DB_ENGINE=oracle`, sempre na tabela `SENSORES_FARMTECH`.
 3. **Aprendizado** — modelos de **regressão supervisionada** (Scikit-Learn) preveem variáveis
    críticas do campo: rendimento, volume de irrigação, necessidade de fertilização, umidade e pH.
 4. **Decisão** — o dashboard **Streamlit** apresenta métricas, correlações e previsões em tempo
    real, sugerindo ações futuras de irrigação e manejo para o gestor agrícola.
 
-A solução é **híbrida**: roda localmente integrada ao Oracle/API, mas também publica um dashboard
+A solução é **híbrida**: roda localmente lendo do **banco SQL** (SQLite por padrão, Oracle opcional)
+via `db/`/API — fechando o ciclo **IoT → DB → ML → Dashboard** —, mas também publica um dashboard
 **online** (Streamlit Cloud) que opera de forma autônoma a partir de artefatos versionados no
-repositório.
+repositório (`DATA_SOURCE=cloud`).
 
 ---
 
@@ -37,19 +39,20 @@ repositório.
                           │  colunas: ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K,    │
                           │           ESTADO_BOMBA, CAPTURADO_EM                     │
                           └───────────────────────────┬──────────────────────────────┘
-                                                      │ ingestão
+                                                      │ ingestão (python -m db.ingest --once | --loop)
                                                       ▼
                           ┌──────────────────────────────────────────────────────────┐
-                          │        ORACLE XE  (REUSADO do Cap-3 — EXTERNO)           │
-                          │  Cap-3/fase3_cap1 · localhost:1521 · service XEPDB1      │
-                          │  Tabela SENSORES_FARMTECH (+ coluna virtual PERIODO)     │
+                          │  BANCO SQL  —  db/  ENGINE-AGNÓSTICO (via DB_ENGINE)     │
+                          │  sqlite (DEFAULT): arquivo db/farmtech.db                │
+                          │  oracle (opcional): Oracle XE do Cap-3 · XEPDB1 (EXTERNO)│
+                          │  Tabela SENSORES_FARMTECH (+ PERIODO virtual no Oracle)  │
                           └───────────────────────────┬──────────────────────────────┘
-                                                      │ ORACLE_DSN / USER / PASSWORD
+                                                      │ leitura via db/ (ler_dados → ML)
                                                       ▼
         ┌─────────────────────────────────────────────────────────────────────────────────────┐
         │                            PIPELINE DE MACHINE LEARNING                              │
         │                                                                                     │
-        │   ml/prepare_dataset.py  ──►  data/processed/dataset_ml.parquet                     │
+        │   ml/prepare_dataset.py  ──►  data/processed/dataset_ml.csv                         │
         │       (limpeza + engenharia de features e dos alvos simulados)                      │
         │                                       │                                             │
         │                                       ▼                                             │
@@ -68,15 +71,16 @@ repositório.
    └───────────────────────────────┘                        └────────────────┬───────────────────┘
                                                                              │ DATA_SOURCE
                                           ┌──────────────────────────────────┴──────────────────────────────┐
-                                          │  local  →  consome API / Oracle (Cap-3)                          │
-                                          │  cloud  →  lê data/processed/dataset_ml.parquet + models/*.joblib │
+                                          │  local  →  lê do banco SQL via db/ (SQLite padrão · Oracle Cap-3) │
+                                          │  cloud  →  lê data/processed/dataset_ml.csv + models/*.joblib     │
                                           └───────────────────────────────────────────────────────────────────┘
                                                                              │
                                                                              ▼
                                                        ☁  DEPLOY ONLINE (Streamlit Cloud)
-                                                       Não alcança o Oracle local: opera 100%
+                                                       Não alcança o banco local: opera 100%
                                                        a partir dos artefatos versionados no repo
-                                                       (DATA_SOURCE=cloud).  Ver docs/DEPLOY.md
+                                                       (DATA_SOURCE=cloud, default; config em
+                                                       .streamlit/ na raiz).  Ver docs/DEPLOY.md
 ```
 
 > **docker-compose deste projeto** sobe apenas **api** (FastAPI :8000) + **streamlit** (:8501).
@@ -93,12 +97,13 @@ fase4cap1/
 ├── analise_gap.md                  # análise enunciado × já implementado (reuso Cap-2/Cap-3)
 ├── requirements.txt                # dependências Python (sklearn, pandas, streamlit, fastapi...)
 ├── docker-compose.yml              # sobe api + streamlit (Oracle vem do Cap-3, externo)
+├── .streamlit/config.toml          # config/tema do Streamlit (lido na RAIZ pelo Cloud e Docker)
 │
 ├── data/
 │   ├── raw/
 │   │   └── seed_data.csv           # dataset bruto: 2696 leituras de sensores (header + dados)
 │   └── processed/
-│       └── dataset_ml.parquet      # dataset pronto p/ ML (gerado por prepare_dataset.py)
+│       └── dataset_ml.csv          # dataset pronto p/ ML (gerado por prepare_dataset.py; versionado)
 │
 ├── ml/                             # PARTE 1 + PARTE 2 — pipeline de Machine Learning
 │   ├── prepare_dataset.py          # limpeza + features + engenharia dos alvos simulados
@@ -116,10 +121,11 @@ fase4cap1/
 ├── api/                            # FastAPI (:8000) — expõe dados Oracle e previsões
 │
 ├── streamlit/                      # PARTE 1 + IR ALÉM 2 — dashboard do gestor agrícola
-│   ├── app.py                      # fonte de dados comutável via DATA_SOURCE (local|cloud)
-│   └── .streamlit/                 # configuração/segredos do Streamlit (deploy)
+│   └── app.py                      # fonte de dados comutável via DATA_SOURCE (local|cloud)
 │
-├── db/                             # IR ALÉM 1 — modelagem e ingestão IoT (Oracle Cap-3)
+├── db/                             # IR ALÉM 1 — banco IoT engine-agnóstico (SQLite/Oracle)
+│   ├── connection.py               # conexão + DDL por engine (DB_ENGINE: sqlite|oracle)
+│   └── ingest.py                   # ingestão CSV→DB (--once/--loop) e ler_dados (DB→ML)
 │
 └── docs/
     ├── DEPLOY.md                   # guia de publicação do dashboard online (Streamlit Cloud)
@@ -134,33 +140,38 @@ fase4cap1/
 |---|---|---|
 | **PARTE 1** — ML + Streamlit | Pipeline Scikit-Learn integrado a dashboard interativo (métricas, correlações, previsões em tempo real) | `ml/` + `streamlit/app.py` |
 | **PARTE 2** — Algoritmos preditivos | Modelos de regressão (linear, múltipla, não-linear) para volume de irrigação, necessidade de fertilização e rendimento, avaliados por MAE/MSE/RMSE/R² | `ml/train.py` + `ml/notebook.ipynb` |
-| **IR ALÉM 1** — Banco de dados IoT | Modelagem e ingestão/atualização dos dados de sensores em banco SQL (Oracle XE reaproveitado do Cap-3) | `db/` (+ Oracle do Cap-3) |
+| **IR ALÉM 1** — Banco de dados IoT | Modelagem e ingestão/atualização dos dados de sensores em banco SQL **engine-agnóstico** (SQLite por padrão; Oracle XE do Cap-3 via `DB_ENGINE=oracle`) | `db/` (+ Oracle opcional do Cap-3) |
 | **IR ALÉM 2** — Dashboard online | Dashboard analítico interativo e **online** com correlações, previsões e tendências de produtividade | `streamlit/` + `docs/DEPLOY.md` |
 
 ---
 
 ## Como rodar
 
-> Pré-requisitos: Python 3.11+, Docker/Docker Compose e o repositório do **Cap-3** disponível em
-> `1-semestre/Cap-3/fase3_cap1` (fornece o Oracle XE).
+> Pré-requisitos: Python 3.11+. O banco usa **SQLite por padrão** (zero dependências externas);
+> Docker/Docker Compose e o repositório do **Cap-3** (`1-semestre/Cap-3/fase3_cap1`) só são
+> necessários se quiser usar o **Oracle XE** (`DB_ENGINE=oracle`) — ver passo 6.
 
-**1. Subir o Oracle do Cap-3** (fonte de dados externa)
+> Rode os comandos a partir da raiz do projeto (`fase4cap1/`).
 
-```bash
-cd ../Cap-3/fase3_cap1
-docker compose up -d        # Oracle XE em localhost:1521 · service XEPDB1
-```
-
-**2. Instalar as dependências Python**
+**1. Instalar as dependências Python**
 
 ```bash
 pip install -r requirements.txt
 ```
 
+**2. Ingerir os dados de sensores no banco** (IR ALÉM 1 — IoT → DB)
+
+```bash
+python -m db.ingest --once                       # carrega o seed_data.csv no SQLite (db/farmtech.db)
+
+# (opcional) simular IoT contínuo: recicla o CSV com timestamp ao vivo
+python -m db.ingest --loop --batch-size 5 --simular-tempo-real
+```
+
 **3. Preparar o dataset** (limpeza + features + engenharia dos alvos)
 
 ```bash
-python ml/prepare_dataset.py        # gera data/processed/dataset_ml.parquet
+python ml/prepare_dataset.py        # gera data/processed/dataset_ml.csv
 ```
 
 **4. Treinar os modelos de regressão**
@@ -172,10 +183,22 @@ python ml/train.py                  # gera models/*.joblib + models/metrics.json
 **5. Rodar o dashboard Streamlit**
 
 ```bash
-streamlit run streamlit/app.py      # dashboard em http://localhost:8501
+# Default (cloud): lê os artefatos versionados (dataset_ml.csv + models/*.joblib)
+streamlit run streamlit/app.py                      # dashboard em http://localhost:8501
+
+# Local: fecha o loop IoT→DB→ML→Dashboard lendo do banco SQL (db/)
+DATA_SOURCE=local streamlit run streamlit/app.py
 ```
 
-**6. (Opcional) Subir tudo via Docker Compose** (api + streamlit)
+**6. (Opcional) Usar o Oracle XE do Cap-3 no lugar do SQLite**
+
+```bash
+cd ../Cap-3/fase3_cap1 && docker compose up -d oracle   # Oracle XE em localhost:1521 · XEPDB1
+# de volta na raiz do projeto, aponte a ingestão/leitura para o Oracle:
+DB_ENGINE=oracle ORACLE_DSN=localhost:1521/XEPDB1 python -m db.ingest --once
+```
+
+**7. (Opcional) Subir tudo via Docker Compose** (api + streamlit)
 
 ```bash
 docker compose up                   # api :8000 + streamlit :8501 (Oracle vem do Cap-3)
@@ -185,8 +208,10 @@ docker compose up                   # api :8000 + streamlit :8501 (Oracle vem do
 
 | Variável | Componente | Descrição |
 |---|---|---|
-| `ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD` | api / db | Conexão com o Oracle XE do Cap-3 |
-| `DATA_SOURCE` | streamlit | `local` (API/Oracle) ou `cloud` (parquet + joblib do repo) |
+| `DB_ENGINE` | db | `sqlite` (**default**, arquivo `db/farmtech.db`) ou `oracle` (reusa o Oracle XE do Cap-3) |
+| `SQLITE_PATH` | db | Caminho do arquivo SQLite (default `db/farmtech.db`) |
+| `ORACLE_DSN`, `ORACLE_USER`, `ORACLE_PASSWORD` | api / db | Conexão com o Oracle XE do Cap-3 (só com `DB_ENGINE=oracle`) |
+| `DATA_SOURCE` | streamlit | `cloud` (**default**, lê `dataset_ml.csv` + `models/*.joblib`) ou `local` (lê do banco SQL via `db/`/API) |
 | `API_URL` | streamlit | URL da API FastAPI (modo local) |
 | `MODELS_DIR`, `DATA_PATH` | ml / streamlit / api | Caminhos dos modelos e do dataset processado |
 

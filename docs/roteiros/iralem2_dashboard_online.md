@@ -1,4 +1,4 @@
-# Roteiro de Vídeo — IR ALÉM 2: Dashboard Analítico Online com Previsões
+# Roteiro de Vídeo — IR ALÉM 2: Dashboard Analítico Online (Streamlit Cloud)
 
 > **Projeto:** FarmTech Solutions — Fase 4, Capítulo 1 (Assistente Agrícola Inteligente)
 > **Autor:** Jefferson Gonçalves Lemos · RM 572399 · Inteligência Artificial — FIAP
@@ -8,13 +8,18 @@
 
 ## Objetivo do vídeo
 
-Demonstrar o **dashboard analítico interativo e ONLINE** (Streamlit Cloud), exibindo:
+Demonstrar o **dashboard analítico interativo PUBLICADO ONLINE** no **Streamlit Community Cloud**, exibindo:
 
-1. O **funcionamento completo** do dashboard com **previsões** geradas pelo modelo.
-2. As **visualizações**: gráficos de **correlação**, **resultados de previsão** e **tendências de produtividade**.
-3. A **interpretação dos resultados** e a **usabilidade** da interface para o gestor agrícola.
+1. A **publicação** do app no Streamlit Cloud (repo já pronto; main file `streamlit/app.py`; `DATA_SOURCE=cloud` por default). **O deploy/login é manual** (OAuth GitHub → Streamlit, no navegador — não pode ser automatizado).
+2. O **funcionamento completo** do dashboard com **previsões** geradas pelos modelos.
+3. As **visualizações**: **correlações**, **resultados de previsão** e **tendências de produtividade**.
+4. A **interpretação** dos resultados para o gestor agrícola.
 
-Diferencial do IR ALÉM 2: o dashboard está **publicado online** e funciona **sem o Oracle local**, graças à fonte de dados comutável por `DATA_SOURCE`.
+**Por que funciona online sem o banco local.** A fonte de dados é comutável por `DATA_SOURCE`:
+- `cloud` (**DEFAULT**) → lê o dataset versionado `data/processed/dataset_ml.csv` e os modelos `models/*.joblib` (ambos **commitados** no repo). Não depende de Oracle nem de SQLite no servidor.
+- `local` → consome a API FastAPI e/ou o banco SQL (`db/`), com fallback para os arquivos.
+
+Config do Streamlit em `/.streamlit/config.toml` (raiz, tema agrícola) e `requirements.txt` na raiz. **Nenhum secret é necessário.**
 
 ---
 
@@ -22,85 +27,89 @@ Diferencial do IR ALÉM 2: o dashboard está **publicado online** e funciona **s
 
 | Total | Limite oficial |
 |-------|----------------|
-| ~4min40s | **5 minutos** |
+| ~4min45s | **5 minutos** |
 
 ---
 
 ## Roteiro em blocos (com tempo)
 
-### Bloco 0 — Abertura e o "online" (0:00 – 0:35)
+### Bloco 0 — Publicar no Streamlit Cloud (deploy manual) (0:00 – 0:55)
 
 **Fala (resumo):**
-> "Jefferson Lemos, RM 572399. Neste IR ALÉM 2 mostro o dashboard analítico da FarmTech publicado online no Streamlit Cloud. Como o deploy não alcança o Oracle local, a aplicação tem uma fonte de dados comutável: a variável `DATA_SOURCE`. Em `cloud`, ela lê o `dataset_ml.parquet` e os `models/*.joblib` versionados no repositório; em `local`, consome a API FastAPI e o Oracle."
+> "Jefferson Lemos, RM 572399. Neste IR ALÉM 2 publico o dashboard da FarmTech no **Streamlit Community Cloud** e mostro ele rodando online. O repositório já está pronto: o main file é `streamlit/app.py`, o `DATA_SOURCE` já vem como `cloud` por default — lendo o dataset e os modelos versionados — e não precisa de nenhum secret. O deploy em si é manual: exige login do GitHub no Streamlit pelo navegador."
 
-**Tela:**
-- Abrir a **URL pública** do dashboard (Streamlit Cloud).
-- Mostrar rápido em `streamlit/app.py` o trecho que comuta por `DATA_SOURCE` (local vs. cloud).
+**Tela (passo a passo do deploy — manual):**
+1. share.streamlit.io → **Sign in with GitHub** (OAuth — passo manual no navegador).
+2. **Create app** / **Deploy a public app from GitHub**.
+3. Repository: `jeffersonGlemos/fiap-semestre1-fase4-cap1` · Branch: `main`.
+4. **Main file path:** `streamlit/app.py`.
+5. (Opcional) Advanced settings → Python 3.11+ · confirmar `DATA_SOURCE=cloud` (já é o default).
+6. **Deploy** → aguardar o build (instala `requirements.txt` da raiz).
+
+**Pontos a citar:**
+- `DATA_SOURCE=cloud` evita qualquer dependência de banco no servidor.
+- Tema agrícola vem do `/.streamlit/config.toml` (raiz).
 
 ---
 
-### Bloco 1 — Visão geral e usabilidade (0:35 – 1:25)
+### Bloco 1 — App no ar: visão geral e usabilidade (0:55 – 1:45)
 
 **Fala (resumo):**
-> "A interface foi pensada para o gestor: visão geral no topo, navegação por abas, controles à esquerda e resultados à direita. Nenhum conhecimento de código é necessário — basta ajustar os parâmetros dos sensores e ler as previsões e recomendações."
+> "Com o build pronto, abro a **URL pública**. A interface foi pensada para o gestor: cabeçalho com KPIs, navegação por abas e controles no painel lateral. Não exige conhecimento técnico — basta ajustar os parâmetros dos sensores e ler previsões e recomendações."
 
 **Tela:**
-- Tour pela interface: cabeçalho, abas/seções, painel lateral de controles.
-- Mostrar responsividade/clareza (cards de KPI, rótulos em português).
-
-**Pontos a citar (usabilidade):**
-- Layout limpo, métricas como KPIs, gráficos interativos (Plotly: zoom/hover).
-- Mensagens de recomendação em linguagem do agronegócio.
+- Abrir a **URL pública** do app (Streamlit Cloud), de preferência em aba anônima.
+- Tour pelas **6 abas**: `Visão Geral`, `NPK e pH`, `Irrigação`, `Correlações`, `Previsões`, `Sugestões de Manejo`.
+- Apontar o badge de fonte de dados (☁️ Cloud) e os KPIs/cards em português.
 
 ---
 
-### Bloco 2 — Correlações (1:25 – 2:15)
+### Bloco 2 — Correlações (1:45 – 2:35)
 
 **Fala (resumo):**
-> "Na seção de correlações, o heatmap mostra como as variáveis se relacionam. Veja que umidade tem correlação negativa com o volume de irrigação previsto — faz sentido agronômico: solo mais seco demanda mais água. NPK se relaciona com a necessidade de fertilização."
+> "Na aba **Correlações**, o heatmap mostra como as variáveis se relacionam. A umidade tende a se relacionar negativamente com o volume de irrigação previsto — faz sentido agronômico: solo mais seco demanda mais água. NPK se relaciona com a necessidade de fertilização."
 
 **Tela:**
-- Abrir o **heatmap de correlações** (Plotly).
-- Passar o mouse para mostrar valores; apontar 2–3 relações relevantes.
+- Abrir o **heatmap de correlações** (Plotly): hover para mostrar os valores.
+- Apontar 2–3 relações relevantes (umidade ↔ irrigação, NPK ↔ fertilização).
 
 **Interpretação a verbalizar:**
 - Correlação ≠ causalidade, mas orienta hipóteses de manejo.
-- Destacar pares com forte relação (umidade↔irrigação, NPK↔fertilização).
 
 ---
 
-### Bloco 3 — Previsões e tendências de produtividade (2:15 – 3:35)
+### Bloco 3 — Previsões e tendências de produtividade (2:35 – 3:45)
 
 **Fala (resumo):**
-> "Aqui o coração do dashboard: as previsões. Informando os sensores, o modelo prevê rendimento, volume de irrigação, necessidade de fertilização, umidade e pH. O gráfico de previsto vs. real mostra a aderência do modelo, e a aba de tendências mostra a produtividade ao longo do tempo e por pivô."
+> "Aqui o coração do dashboard. Informando os sensores, os modelos preveem **rendimento**, **volume de irrigação**, **necessidade de fertilização**, **umidade** e **pH** — cinco alvos. As abas de Visão Geral e Irrigação mostram as tendências de produtividade ao longo do tempo e por pivô."
 
 **Tela:**
-1. Ajustar os **controles de entrada** → ver as **5 previsões** atualizando.
-2. Mostrar a seção de **sugestões de manejo** (irrigar X mm, fertilizar índice Y, rendimento esperado em sacas/ha).
-3. Mostrar gráfico **previsto vs. real** (aderência) e/ou **importância de variáveis**.
-4. Mostrar **tendência de produtividade** (linha temporal / comparação entre pivôs p1/p2/p3).
+1. Aba **Previsões**: ajustar os **controles de entrada** → ver as **5 previsões** atualizando.
+2. Citar os **R²** dos modelos (lidos de `models/metrics.json`): rendimento **0.88**, volume de irrigação **0.94**, necessidade de fertilização **0.97**, umidade **0.77**, pH **0.09**.
+3. Aba **Visão Geral / Irrigação**: mostrar a **tendência de produtividade** (linha temporal e comparação entre pivôs p1/p2/p3).
 
 **Interpretação a verbalizar:**
-- "Previsto vs. real próximo da diagonal" = modelo confiável.
+- R² alto (irrigação, fertilização, rendimento) = previsões confiáveis para decisão.
+- R² do pH é baixo (0.09) — sinalizo a limitação com honestidade.
 - Tendência ajuda o gestor a antecipar safra e planejar insumos.
 
 ---
 
-### Bloco 4 — Interpretação para o gestor (3:35 – 4:20)
+### Bloco 4 — Sugestões de manejo: interpretação para o gestor (3:45 – 4:30)
 
 **Fala (resumo):**
-> "Traduzindo para a decisão: com estes sensores, o modelo prevê rendimento de N sacas por hectare e recomenda M milímetros de irrigação. Se a necessidade de fertilização sobe, há déficit de NPK a corrigir. O gestor decide com dados, não no 'achismo'."
+> "Traduzindo para a decisão: na aba **Sugestões de Manejo**, as previsões viram recomendações — quantos milímetros irrigar, o índice de fertilização e o rendimento esperado. O gestor decide com dados, não no 'achismo'."
 
 **Tela:**
-- Simular um cenário de **déficit** (umidade baixa, NPK baixo) → ver previsões e recomendações reagindo.
-- Comparar com um cenário **ótimo** → mostrar contraste nas sugestões.
+- Simular um cenário de **déficit** (umidade baixa, NPK baixo) → ver previsões e sugestões reagindo.
+- Comparar com um cenário **ótimo** → mostrar o contraste nas recomendações (`ml/suggest.py`).
 
 ---
 
-### Bloco 5 — Fechamento (4:20 – 4:45)
+### Bloco 5 — Fechamento (4:30 – 4:45)
 
 **Fala (resumo):**
-> "Recapitulando: dashboard publicado online, com correlações, previsões e tendências, interpretáveis e fáceis de usar pelo gestor — e funcionando sem depender do banco local graças ao `DATA_SOURCE`. Esse é o ciclo completo: do sensor à decisão. Obrigado!"
+> "Recapitulando: dashboard **publicado online** no Streamlit Cloud, com correlações, previsões e tendências, interpretáveis e fáceis de usar — e funcionando sem banco local graças ao `DATA_SOURCE=cloud`, lendo o dataset e os modelos versionados no repo. Do sensor à decisão. Obrigado!"
 
 **Tela:** visão geral do dashboard online + URL pública. Encerrar.
 
@@ -109,24 +118,25 @@ Diferencial do IR ALÉM 2: o dashboard está **publicado online** e funciona **s
 ## Checklist — o que MOSTRAR na tela
 
 - [ ] Identificação: nome, RM 572399, Fase 4 Cap 1.
-- [ ] **URL pública** do dashboard (Streamlit Cloud) funcionando.
-- [ ] Comutação de fonte por `DATA_SOURCE` (`cloud` = Parquet + joblib; `local` = API/Oracle).
-- [ ] Tour de usabilidade: layout, abas, controles, KPIs em português.
+- [ ] **Deploy manual** no Streamlit Cloud: login GitHub (OAuth), repo `jeffersonGlemos/fiap-semestre1-fase4-cap1`, main file `streamlit/app.py`.
+- [ ] **URL pública** do dashboard funcionando (aba anônima).
+- [ ] Fonte comutável por `DATA_SOURCE` (`cloud` = `dataset_ml.csv` + `*.joblib` versionados; `local` = API/banco).
+- [ ] Tour das **6 abas** e dos KPIs em português.
 - [ ] **Heatmap de correlações** (com interpretação de 2–3 relações).
 - [ ] **Previsões** dos 5 alvos atualizando ao mover os controles.
-- [ ] **Sugestões de manejo** (irrigação / fertilização / rendimento).
-- [ ] Gráfico **previsto vs. real** e/ou importância de variáveis.
+- [ ] **R²** dos modelos (0.88 / 0.94 / 0.97 / 0.77 / 0.09), com honestidade sobre o pH.
 - [ ] **Tendência de produtividade** (temporal / por pivô p1/p2/p3).
-- [ ] Cenário de déficit vs. cenário ótimo (contraste das recomendações).
+- [ ] **Sugestões de manejo**: cenário de déficit vs. cenário ótimo (contraste).
 
 ---
 
 ## Checklist técnico — ANTES de gravar
 
-- [ ] `data/processed/dataset_ml.parquet` e `models/*.joblib` **commitados** no repositório (necessário para o modo `cloud`).
-- [ ] App publicado no Streamlit Cloud, com `DATA_SOURCE=cloud` nas secrets/variáveis.
-- [ ] Testar a URL pública em aba anônima (garantir que carrega sem dependência local).
-- [ ] Confirmar que todos os gráficos (correlação, previsto vs. real, tendência) renderizam online.
+- [ ] `data/processed/dataset_ml.csv` e `models/*.joblib` **commitados** no repo (essenciais para o modo `cloud`).
+- [ ] `requirements.txt` e `/.streamlit/config.toml` na **raiz** do repo.
+- [ ] App publicado e buildado no Streamlit Cloud (`DATA_SOURCE=cloud` já é o default — sem secrets).
+- [ ] Testar a URL pública em **aba anônima** (garantir que carrega sem dependência local).
+- [ ] Confirmar que todos os gráficos (correlação, previsões, tendência) renderizam online.
 - [ ] Preparar 2 cenários de entrada (déficit e ótimo) para a comparação ao vivo.
 - [ ] Conexão de internet estável durante a gravação.
-- [ ] Ensaiar para fechar em ~4min40s.
+- [ ] Ensaiar para fechar em ~4min45s.

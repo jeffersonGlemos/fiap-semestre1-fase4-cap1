@@ -39,9 +39,15 @@ import time
 from datetime import datetime
 from typing import Any, Iterable
 
-import oracledb
-
-from db.connection import get_connection, wait_for_connection
+from db.connection import (
+    DB_ENGINE,
+    count_sql,
+    criar_tabela,
+    get_connection,
+    insert_sql,
+    select_sql,
+    wait_for_connection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +61,6 @@ DATA_PATH: str = os.getenv("DATA_PATH", DEFAULT_DATA_PATH)
 
 # Colunas da tabela, na ordem dos binds do INSERT.
 COLUNAS = ("ID_PIVO", "UMIDADE", "TEMPERATURA", "PH", "N", "P", "K", "ESTADO_BOMBA", "CAPTURADO_EM")
-
-INSERT_SQL = (
-    "INSERT INTO SENSORES_FARMTECH "
-    "(ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K, ESTADO_BOMBA, CAPTURADO_EM) "
-    "VALUES (:1, :2, :3, :4, :5, :6, :7, :8, "
-    "TO_TIMESTAMP(:9, 'YYYY-MM-DD HH24:MI:SS'))"
-)
 
 
 # ---------------------------------------------------------------------------
@@ -117,13 +116,16 @@ def _com_timestamp_atual(linha: tuple[Any, ...]) -> tuple[Any, ...]:
 # ---------------------------------------------------------------------------
 # Escrita (ingestão)
 # ---------------------------------------------------------------------------
-def inserir_linhas(conn: oracledb.Connection, linhas: Iterable[tuple[Any, ...]]) -> int:
+def inserir_linhas(conn, linhas: Iterable[tuple[Any, ...]]) -> int:
     """Insere um lote de linhas em ``SENSORES_FARMTECH`` via ``executemany``.
+
+    Funciona tanto no SQLite quanto no Oracle (o SQL vem de
+    ``connection.insert_sql()``, no dialeto do engine ativo).
 
     Parameters
     ----------
-    conn : oracledb.Connection
-        Conexão ativa.
+    conn
+        Conexão ativa (sqlite3 ou oracledb).
     linhas : Iterable[tuple]
         Tuplas na ordem de :data:`COLUNAS`.
 
@@ -135,8 +137,11 @@ def inserir_linhas(conn: oracledb.Connection, linhas: Iterable[tuple[Any, ...]])
     linhas = list(linhas)
     if not linhas:
         return 0
-    with conn.cursor() as cur:
-        cur.executemany(INSERT_SQL, linhas)
+    cur = conn.cursor()
+    try:
+        cur.executemany(insert_sql(), linhas)
+    finally:
+        cur.close()
     conn.commit()
     return len(linhas)
 
@@ -161,6 +166,7 @@ def ingest_once(path: str = DATA_PATH, simular_tempo_real: bool = False) -> int:
         linhas = [_com_timestamp_atual(l) for l in linhas]
     conn = wait_for_connection()
     try:
+        criar_tabela(conn)  # idempotente (cria a tabela no SQLite novo)
         total = inserir_linhas(conn, linhas)
         logger.info("Ingestão única concluída: %d linhas inseridas.", total)
         return total
@@ -206,6 +212,7 @@ def ingest_loop(
         return 0
 
     conn = wait_for_connection()
+    criar_tabela(conn)  # idempotente (cria a tabela no SQLite novo)
     total = 0
     idx = 0
     ciclo = 0
@@ -236,12 +243,13 @@ def ingest_loop(
 # ---------------------------------------------------------------------------
 # Leitura (serviço para o ML)
 # ---------------------------------------------------------------------------
-def ler_dados_oracle(limit: int | None = None, as_dataframe: bool = False):
+def ler_dados(limit: int | None = None, as_dataframe: bool = False):
     """Lê leituras de ``SENSORES_FARMTECH`` para alimentar o pipeline de ML.
 
     Faz um SELECT ordenado por ``CAPTURADO_EM`` e devolve os registros. Esta é a
     porta de entrada usada pelo ``ml/`` e pelo ``streamlit/app.py`` quando
-    ``DATA_SOURCE=local`` (fonte = Oracle do Cap-3).
+    ``DATA_SOURCE=local`` (fonte = banco SQL: SQLite por padrão, ou o Oracle do
+    Cap-3 quando ``DB_ENGINE=oracle``).
 
     Parameters
     ----------
@@ -256,19 +264,15 @@ def ler_dados_oracle(limit: int | None = None, as_dataframe: bool = False):
     list[dict] | pandas.DataFrame
         Registros com as colunas de :data:`COLUNAS`.
     """
-    sql = (
-        "SELECT ID_PIVO, UMIDADE, TEMPERATURA, PH, N, P, K, ESTADO_BOMBA, "
-        "CAPTURADO_EM FROM SENSORES_FARMTECH ORDER BY CAPTURADO_EM"
-    )
-    if limit is not None:
-        sql += f" FETCH FIRST {int(limit)} ROWS ONLY"
-
     conn = get_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(sql)
+        cur = conn.cursor()
+        try:
+            cur.execute(select_sql(limit))
             colunas = [d[0] for d in cur.description]
             registros = [dict(zip(colunas, row)) for row in cur.fetchall()]
+        finally:
+            cur.close()
     finally:
         conn.close()
 
@@ -279,6 +283,26 @@ def ler_dados_oracle(limit: int | None = None, as_dataframe: bool = False):
 
         return pd.DataFrame(registros, columns=colunas)
     return registros
+
+
+# Alias retrocompatível (o módulo antes expunha 'ler_dados_oracle').
+ler_dados_oracle = ler_dados
+
+
+def contar_linhas() -> int:
+    """Retorna a contagem de linhas em ``SENSORES_FARMTECH`` (0 se a tabela não existir)."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        try:
+            cur.execute(count_sql())
+            return int(cur.fetchone()[0])
+        except Exception:  # noqa: BLE001 - tabela ainda não criada
+            return 0
+        finally:
+            cur.close()
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
